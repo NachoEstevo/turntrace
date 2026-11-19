@@ -1,0 +1,60 @@
+name: Exploration profile
+on:
+  schedule:
+    - cron: "37 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sampled-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Collect the campaign and resource measurements
+        id: profile
+        run: |
+          mkdir profile
+          node dist/cli/index.js explore examples/lab/recovery.json --seed 73 --samples 200 --max-runs 200 --profile --json >profile/campaign.json 2>profile/resources.json
+      - name: Check sample accounting and timing units
+        if: ${{ !cancelled() && steps.profile.outcome != 'skipped' }}
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const read = name => JSON.parse(readFileSync('profile/' + name + '.json', 'utf8'));
+          const campaign = read('campaign');
+          const resources = read('resources');
+          assert.equal(campaign.mode, 'sampled');
+          assert.equal(campaign.complete, false);
+          assert.equal(campaign.seed, 73);
+          assert.equal(campaign.samples, 200);
+          assert.equal(campaign.maxRuns, 200);
+          assert.equal(campaign.histories, 200);
+          assert.equal(campaign.remainingSamples, 0);
+          assert.equal(campaign.histories, campaign.counts.terminal + campaign.counts.blocked + campaign.counts.truncated);
+          assert.deepEqual(resources.counts, campaign.counts);
+          assert.deepEqual(resources.limits, campaign.limits);
+          assert.equal(resources.seed, campaign.seed);
+          assert.equal(resources.scenario, campaign.scenario);
+          for (const field of ['elapsedMs', 'cpuUserMs', 'cpuSystemMs', 'processPeakRssKiB']) {
+            assert(Number.isFinite(resources[field]) && resources[field] >= 0, field);
+          }
+          console.log(JSON.stringify({ histories: campaign.histories, counts: campaign.counts, resources }));
+          JS
+      - name: Save the coverage and profile
+        if: ${{ !cancelled() && steps.profile.outcome != 'skipped' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: exploration-profile-${{ github.sha }}
+          path: profile/*.json
+          retention-days: 14
+          if-no-files-found: error
