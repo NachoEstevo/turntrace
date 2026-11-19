@@ -6,7 +6,9 @@ import { loadReplayLabAdapter, replayLabTrace } from "../lab/trace.js";
 import { createRecoveryTrace } from "../recovery-trace.js";
 import { createTrace } from "../trace.js";
 import { readJson, saveTrace } from "./files.js";
-import { formatLab, labExit, minimizeCommand, oneFile, runOrExplore, schemaCommand } from "./lab.js";
+import { oneFile } from "./arguments.js";
+import { compareCommand } from "./compare.js";
+import { formatLab, labExit, minimizeCommand, runOrExplore, schemaCommand } from "./lab.js";
 import { formatRecoveryComparison, formatRecoveryRun } from "./recovery.js";
 import { formatComparison, formatRun } from "./report.js";
 
@@ -18,6 +20,7 @@ const help = `Turntrace reproduces booking races and agent recovery in a synthet
   turntrace run <scenario.json> [--adapter <trusted.mjs>] [--out <trace.json>] [--seed N]
   turntrace explore <scenario.json> [--adapter <trusted.mjs>] [--max-runs N] [--out <witness.json>] [--out-dir <new-directory>]
   turntrace minimize <trace.json> [--adapter <trusted.mjs>] [--max-attempts N] [--max-milliseconds N] [--out <reduced.json>]
+  turntrace compare <left.json> <right.json> [--adapter <trusted.mjs>] [--observation NAME] [--max-pairs N] [--out-dir <new-directory>] [--json]
   turntrace replay <trace.json> [--adapter <trusted.mjs>]
   turntrace schema scenario|command|trace|campaign
 
@@ -32,6 +35,10 @@ Run and explore accept --max-steps, --max-decisions, --max-restarts and
 Use --seed N [--samples N] to sample, --profile for measured CPU and memory
 on stderr, and --json for machine-readable results from the lab commands.
 Minimize writes a fresh failing case when --out is supplied.
+Compare verifies two schema 3 runs and tests opposite orders under a common
+continuation. The default budget is 64 pairs. Select separate trusted modules
+with --left-adapter and --right-adapter when the paths differ. A completed
+comparison returns 0, an inconclusive contrast 3, and invalid input or replay 2.
 
 Exit codes: 0 checks passed, 1 property violation, 2 invalid input or replay,
 3 inconclusive exploration. An observed violation takes precedence over a cutoff.
@@ -91,7 +98,7 @@ async function recovery(args: string[]): Promise<number> {
 
 async function main([command, ...args]: string[]): Promise<number> {
   if (!command || command === "--help" || command === "-h" ||
-    (["demo", "recovery", "run", "explore", "minimize", "replay", "schema"].includes(command) &&
+    (["demo", "recovery", "run", "explore", "minimize", "compare", "replay", "schema"].includes(command) &&
       args.length === 1 && ["-h", "--help"].includes(args[0]!))) {
     console.log(help);
     return 0;
@@ -100,6 +107,7 @@ async function main([command, ...args]: string[]): Promise<number> {
   if (command === "recovery") return recovery(args);
   if (command === "run" || command === "explore") return runOrExplore(command, args);
   if (command === "minimize") return minimizeCommand(args);
+  if (command === "compare") return compareCommand(args);
   if (command === "schema") return schemaCommand(args);
   if (command === "replay") {
     const { positionals, values } = parseArgs({

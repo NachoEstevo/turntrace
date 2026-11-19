@@ -9,6 +9,7 @@ import {
   labTraceJsonSchema, loadLabAdapter, loadReplayLabAdapter, runLabTrace, type LabTrace,
 } from "../lab/trace.js";
 import { readJson, saveTrace } from "./files.js";
+import { checkPath, integer, oneFile } from "./arguments.js";
 import { campaignJsonSchema, campaignManifest, type CampaignArtifact, type CampaignReport } from "./campaign.js";
 
 const fileFlags = { adapter: { type: "string" }, out: { type: "string" }, json: { type: "boolean" } } as const;
@@ -16,23 +17,6 @@ const bounds = {
   "max-steps": { type: "string" }, "max-decisions": { type: "string" },
   "max-restarts": { type: "string" }, "max-duplicates": { type: "string" },
 } as const;
-
-function integer(name: string, value: string | boolean | undefined, fallback: number): number {
-  if (value === undefined) return fallback;
-  if (typeof value !== "string" || !/^\d+$/.test(value) || !Number.isSafeInteger(Number(value))) {
-    throw new Error(`--${name} must be a nonnegative safe integer.`);
-  }
-  return Number(value);
-}
-
-export function oneFile(paths: string[], command: string): string {
-  if (paths.length !== 1 || !paths[0]) throw new Error(`Expected one input file for turntrace ${command}.`);
-  return paths[0];
-}
-
-function checkPath(flag: string, value: string | undefined): void {
-  if (value !== undefined && !value.trim()) throw new Error(`--${flag} requires a path.`);
-}
 
 export function labExit(trace: LabTrace): number {
   if (trace.result.findings.length) return 1;
