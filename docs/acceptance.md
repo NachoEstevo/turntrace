@@ -30,6 +30,16 @@ The first instance saves Tuesday and sends a create request. It arms a courtesy 
 
 After installation, use the installed `turntrace` executable in place of `node dist/cli/index.js`. You can copy the scenario and adapter into your own project and generate a fresh trace there. For replay in another workspace, reproduce the adapter's source files, Node version and nearest `package-lock.json` (including its absence), then supply the adapter path explicitly. [Adapter guide](adapter.md)
 
+## Verify a consumer's signal-based decision
+
+The CLI regression suite also runs a synthetic pre-booking decision through an external adapter. It checks the three legal delivery orders against an independent assertion, then repeats the check with a faulty policy. To run this gate against a specific tarball, install it in an empty consumer directory. In a checkout of the matching tag with development dependencies installed, set `TURNTRACE_TEST_CLI` to the absolute path of the installed `node_modules/turntrace/dist/cli/index.js`. Run the following command from that checkout.
+
+```sh
+node node_modules/vitest/vitest.mjs run tests/lab-cli.test.ts --testNamePattern "consumer oracle"
+```
+
+The subprocesses use the same Node version as the test runner. Repeat on each supported runtime. The test reads the actual decision, the delivered evidence and the prepared-plan count from replayed histories. It expects the domain assertion to reject a handoff lacking current evidence even when the lab replay succeeds. [Signal and observation contract](adapter.md#check-a-handoff-before-a-reservation-exists)
+
 ## Reduce a saved failure
 
 ```sh

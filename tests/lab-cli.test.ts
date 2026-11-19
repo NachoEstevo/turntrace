@@ -4,30 +4,39 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
+import type { LabEvent } from "../src/lab/contract.js";
 import type { LabTrace } from "../src/lab/trace.js";
 
-const cli = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
+const cli = process.env.TURNTRACE_TEST_CLI ?? fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
+const requestId = "dispatch-42";
 const scenario = {
   schemaVersion: 1, id: "dispatch", policy: "dispatch", delivery: "once", expectation: "observe",
   provider: { idempotent: false, query: false, amend: false },
   actions: ["A", "P", "U"].map(name => ({
-    id: name, kind: "signal", name, tick: 1, parents: name === "P" ? ["A"] : [], data: {},
+    id: name, kind: "signal", name, tick: 1, parents: name === "P" ? ["A"] : [],
+    data: name === "U" ? { requestId, status: "uncertain" } : { requestId },
   })),
 };
-const moduleSource = `export default {
+function moduleSource(handoffCondition = 'state[requestId] === "uncertain"', preparePlan = 'decision === "plan"') {
+  return `export default {
   id: "dispatch", version: "1",
-  init() { return { updated: false }; },
+  init() { return {}; },
   step(state, event) {
     if (event.kind !== "signal") return { next: state, commands: [] };
     if (event.data.assertBooking) return { next: state, commands: [
       { kind: "speech", generation: 1, claim: { bookingId: "unverified", day: "Tuesday" } }
     ] };
-    if (event.name === "P") return { next: state, commands: [
-      { kind: "observe", name: "route", data: { decision: state.updated ? "handoff" : "plan" } }
-    ] };
-    return { next: { updated: state.updated || event.name === "U" }, commands: [] };
+    const { requestId, status } = event.data;
+    if (event.name === "U") return { next: { ...state, [requestId]: status }, commands: [] };
+    if (event.name === "P") {
+      const decision = ${handoffCondition} ? "handoff" : "plan";
+      const plans = ${preparePlan} ? [{ method: "POST" }] : [];
+      return { next: state, commands: [{ kind: "observe", name: "route", data: { requestId, decision, plans } }] };
+    }
+    return { next: state, commands: [] };
   }
 };`;
+}
 
 let workspace: string;
 let input: string;
@@ -37,7 +46,7 @@ beforeAll(async () => {
   workspace = await mkdtemp(join(tmpdir(), "turntrace lab CLI "));
   input = join(workspace, "scenario.json");
   entry = join(workspace, "customer policy.mjs");
-  await Promise.all([writeFile(input, JSON.stringify(scenario)), writeFile(entry, moduleSource)]);
+  await Promise.all([writeFile(input, JSON.stringify(scenario)), writeFile(entry, moduleSource())]);
 });
 afterAll(async () => { await rm(workspace, { recursive: true, force: true }); });
 
@@ -53,7 +62,43 @@ function stdoutJson(expectedExit: number, ...args: string[]) {
   return JSON.parse(result.stdout);
 }
 
-it("exports exactly three causal histories, replays their decisions and preserves existing artifacts", async () => {
+function data(event: LabEvent) {
+  const value = event.payload.data;
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Expected a structured payload.");
+  return value;
+}
+
+// Consumer contract, evaluated from public deliveries and diagnostics only.
+function inspectRoute(events: readonly LabEvent[]) {
+  const signals = events.filter(e => e.actor === "agent" && e.kind === "agent.signalDelivered");
+  const decisions = events.filter(e => e.actor === "agent" && e.kind === "agent.observed" && e.payload.name === "route");
+  if (decisions.length !== 1) throw new Error("Expected one routing decision.");
+  const observation = decisions[0]!;
+  const route = data(observation);
+  if (typeof route.requestId !== "string" || typeof observation.payload.epoch !== "number") {
+    throw new Error("A routing decision must identify its request and epoch.");
+  }
+  const matching = signals.filter(e => e.payload.epoch === observation.payload.epoch && data(e).requestId === route.requestId);
+  const preparation = matching.find(e => e.payload.name === "P" && observation.parents.includes(e.id));
+  if (!preparation || events.indexOf(preparation) >= events.indexOf(observation)) {
+    throw new Error("The routing decision must be caused by a delivered preparation for the same request and epoch.");
+  }
+  const updates = matching.slice(0, matching.indexOf(preparation)).filter(e => e.payload.name === "U");
+  const latest = updates.at(-1);
+  const expected = latest && data(latest).status === "uncertain" ? "handoff" : "plan";
+  if (route.decision !== expected) {
+    throw new Error(`Expected ${expected} from the latest delivered availability for ${route.requestId}; observed ${route.decision}.`);
+  }
+  if (!Array.isArray(route.plans)) throw new Error("The routing diagnostic must include its plans.");
+  const methods = route.plans.map(plan => plan && typeof plan === "object" && !Array.isArray(plan) ? plan.method : null);
+  if (expected === "handoff" && methods.length !== 0) throw new Error("Handoff must leave zero plans.");
+  if (expected === "plan" && (methods.length !== 1 || methods[0] !== "POST")) {
+    throw new Error("Preparation must produce exactly one POST plan.");
+  }
+  return { signals: signals.map(e => e.payload.name).join(""), decision: route.decision, methods };
+}
+
+it("consumer oracle accepts one plan and two handoffs across exactly three replayable histories", async () => {
   const output = join(workspace, "all histories");
   const args = ["explore", input, "--adapter", entry, "--json", "--out-dir", output];
   const report = stdoutJson(0, ...args);
@@ -74,14 +119,13 @@ it("exports exactly three causal histories, replays their decisions and preserve
     const replay = stdoutJson(0, "replay", join(output, name), "--adapter", entry, "--json");
     expect(replay).toEqual(trace);
     expect(trace.manifest.adapter).toMatchObject({ kind: "local", id: "dispatch", runtime: process.version });
-    const ordered = trace.events.filter(e => e.kind === "agent.signalDelivered").map(e => e.payload.name).join("");
-    const decisions = trace.events.filter(e => e.kind === "agent.observed" && e.payload.name === "route");
-    expect(decisions).toHaveLength(1);
-    observed.push([ordered, decisions[0]!.payload.data]);
+    observed.push(inspectRoute(replay.events));
   }
   expect(report.witness).toEqual({ ...report.artifacts[0], firstFinding: null });
-  expect(observed.sort(([left], [right]) => String(left).localeCompare(String(right)))).toEqual([
-    ["APU", { decision: "plan" }], ["AUP", { decision: "handoff" }], ["UAP", { decision: "handoff" }],
+  expect(observed.sort((left, right) => left.signals.localeCompare(right.signals))).toEqual([
+    { signals: "APU", decision: "plan", methods: ["POST"] },
+    { signals: "AUP", decision: "handoff", methods: [] },
+    { signals: "UAP", decision: "handoff", methods: [] },
   ]);
   const collision = invoke(...args);
   expect(collision.status).toBe(2);
@@ -92,6 +136,53 @@ it("exports exactly three causal histories, replays their decisions and preserve
   expect((await readdir(output)).sort()).toEqual(files);
   expect(await Promise.all(files.map(name => readFile(join(output, name), "utf8")))).toEqual(before);
 }, 20_000);
+
+it("consumer oracle rejects an anticipatory handoff before uncertain availability is delivered", async () => {
+  const premature = join(workspace, "premature.mjs");
+  await writeFile(premature, moduleSource("true"));
+  const trace: LabTrace = stdoutJson(0, "run", input, "--adapter", premature, "--json");
+  expect(trace.result).toMatchObject({ verdict: "pass", findings: [] });
+  expect(trace.events.filter(e => e.kind === "agent.signalDelivered").map(e => e.payload.name)).toEqual(["A", "P", "U"]);
+  expect(() => inspectRoute(trace.events)).toThrow(/Expected plan.*observed handoff/);
+});
+
+function update(id: string, tick: number, status: string, target = requestId) {
+  return { id, tick, kind: "signal", name: "U", data: { requestId: target, status } };
+}
+
+it.each([
+  { witness: "superseded status", updates: [update("first", 0, "uncertain"), update("newer", 1, "available")],
+    mutantRule: "state[requestId] !== undefined" },
+  { witness: "different request", updates: [update("other", 0, "uncertain", "dispatch-99")],
+    mutantRule: 'Object.values(state).includes("uncertain")' },
+  { witness: "previous epoch", updates: [update("old", 0, "uncertain"),
+    { id: "crash", kind: "crash", tick: 1 }, { id: "restart", kind: "restart", tick: 2 }],
+    mutantRule: "true" },
+])("consumer oracle rejects stale uncertainty from a $witness", async ({ witness, updates, mutantRule }) => {
+  const stale = join(workspace, witness + ".mjs");
+  const path = join(workspace, witness + ".json");
+  const actions = [
+    ...updates,
+    { id: "A", kind: "signal", name: "A", tick: 3, data: { requestId } },
+    { id: "P", kind: "signal", name: "P", tick: 4, parents: ["A"], data: { requestId } },
+  ];
+  await Promise.all([writeFile(stale, moduleSource(mutantRule)), writeFile(path, JSON.stringify({ ...scenario, actions }))]);
+  const control: LabTrace = stdoutJson(0, "run", path, "--adapter", entry, "--json");
+  expect(inspectRoute(control.events).decision).toBe("plan");
+  const mutant: LabTrace = stdoutJson(0, "run", path, "--adapter", stale, "--json");
+  expect(mutant.result).toMatchObject({ verdict: "pass", findings: [] });
+  expect(() => inspectRoute(mutant.events)).toThrow(/Expected plan.*observed handoff/);
+});
+
+it("consumer oracle rejects a handoff that also exposes a POST plan", async () => {
+  const ghost = join(workspace, "ghost.mjs");
+  const path = join(workspace, "uncertainty-before-preparation.json");
+  const actions = scenario.actions.map(a => a.id === "P" ? { ...a, parents: ["A", "U"] } : a);
+  await Promise.all([writeFile(ghost, moduleSource(undefined, "true")), writeFile(path, JSON.stringify({ ...scenario, actions }))]);
+  const trace: LabTrace = stdoutJson(0, "run", path, "--adapter", ghost, "--json");
+  expect(trace.result).toMatchObject({ verdict: "pass", findings: [] });
+  expect(() => inspectRoute(trace.events)).toThrow(/Handoff must leave zero plans/);
+});
 
 it("emits a parseable profile on stderr and reproduces the first seeded sample with run", async () => {
   const output = join(workspace, "samples");

@@ -39,7 +39,7 @@ For booking scenarios, the checker ties each mutation to a durable caller input 
 | `speech` | `generation`, `claim:{bookingId,day}` | Emit a confirmation. Network arrival, queueing and playback follow as separate actions. |
 | `flush` | `generation` | Request a device floor for future playback. An older fragment already playing when the flush arrives is recorded as a remnant. |
 | `timer` | `timerId`, `delayTicks` | Release a virtual timer for this epoch. |
-| `review` or `reconfirm` | `reason` | Record an explicit handoff or request to reconfirm the caller's intent. |
+| `review` or `reconfirm` | `reason` | Request human review of an unresolved booking or ask the caller to reconfirm after possible input loss. The lab checks the booking evidence. |
 | `observe` | `name`, `data` | Record an adapter-owned diagnostic result. The agent chooses the name and JSON object payload. |
 
 Each retry gets its own transport request ID. Retrying the same idempotent operation uses the same key and content. An amendment is a distinct operation. Emitting two commands in one step can put both in transit. Use an acknowledgement to establish a required dependency.
@@ -56,6 +56,20 @@ The store accepts JSON objects. To evaluate the public booking properties, the c
 Scenario schema version 1 takes an `id`, three independent provider flags (`idempotent`, `query`, `amend`), a caller `delivery` mode, a terminal `expectation` and an `actions` array. The default `policy` is `safe`. Choose `recoverable` for redelivery of retained inputs after restart. Choose `once` to exercise a correction that may be lost before persistence. The terminal expectation can require confirmed playback (`confirmed`), a reasoned handoff (`review`), or reconfirmation (`reconfirm`). Use `settled` when any of those outcomes satisfies the progress requirement.
 
 For a policy with its own domain vocabulary, script `signal` actions. Each carries a name and a JSON object. At its scheduled tick the world records `scenario.signal` and synchronously delivers `{kind:"signal",name,data}` to the active instance, recording `agent.signalDelivered`. While the agent is down, the world records `transport.signalUndelivered`. The adapter may return an `observe` command to expose a structured decision as `agent.observed`. With `expectation:"observe"`, PASS means the run reached a terminal state and passed the lab's applicable safety checks. Evaluating whether the policy made the right domain decision requires a consumer assertion over those observations.
+
+### Check a handoff before a reservation exists
+
+Suppose a policy receives approval (A), a request to prepare a calendar operation (P) and an independent availability update (U) carrying `{status:"uncertain"}`. The scenario requires A before P. Call the consumer's decision function on each delivered signal. Map its actual result to an `observe` command and include the request ID, the returned route and the number of plans it produced. Preserve the distinction between a prepared calendar operation and a provider commit. The built-in `review` command covers a different decision, the handoff of an unresolved booking. Its `handoff.supported` evidence check also runs under `expectation:"observe"`.
+
+| Delivered order | Expected decision at P | Prepared plans |
+| --- | --- | --- |
+| A, P, U | Prepare | 1 |
+| A, U, P | Handoff | 0 |
+| U, A, P | Handoff | 0 |
+
+Explore with `--out-dir` and replay each history with the same adapter. In a consumer assertion, scan the replayed events in order. At the decision, use the latest availability update among earlier `agent.signalDelivered` events for that request in the issuing epoch. A handoff needs a current uncertain status. A later update can supersede that status. The scheduled tick and an adapter-authored reason cannot establish delivery. Also check that the emitted decision belongs to P and that its plan count matches the table. A policy that always hands off fails the first row even though all three lab histories can replay successfully.
+
+Report this assertion alongside the lab verdict and save the history that failed it. The CLI's witness selection and reducer use built-in findings. A consumer can reproduce a domain assertion by replaying its selected archive file and running the assertion again. The executable regression covers all three orders and a premature handoff. [Consumer assertion and negative control](https://github.com/NachoEstevo/turntrace/blob/v0.1.0/tests/lab-cli.test.ts)
 
 Each scripted action names an ASCII `id`, a nonnegative integer `tick` and optional `parents`. Parents name other scripted actions. The parser checks for duplicate IDs, missing parents, cycles and a child tick earlier than its parent. Distinct actions can deliver the same logical `inputId` only with identical content. A reducer can remove actions marked `optional:true`. Use `group` to associate optional actions for a joint reduction attempt.
 

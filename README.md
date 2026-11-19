@@ -43,7 +43,7 @@ node dist/cli/index.js schema campaign
 
 The second command takes a reproducible sample. Its coverage remains `sampled` even when every selected history passes. `--profile` writes elapsed time, CPU time, peak process memory, platform and budgets to stderr. Machine-readable results go to stdout. Save a witness with `--out`. Add `--out-dir` to write each history as it finishes. The final `index.json` records their filenames, digests, statuses and the selected witness. If the process stops early, completed history files remain replayable and a missing index identifies an interrupted campaign.
 
-Third-party policies can receive domain-specific `signal` actions and return structured `observe` commands. With `expectation: "observe"`, consumers evaluate their own domain decisions from those recorded observations. The adapter guide covers state, evidence, the permitted local import graph and the fingerprint required for replay. [Adapter contract](docs/adapter.md) · [Scenario catalogue and acceptance tests](docs/acceptance.md)
+Third-party policies can receive domain-specific `signal` actions and return structured `observe` commands. With `expectation: "observe"`, consumers check their own decisions against the signals actually delivered before each decision. The guide works through a handoff caused by uncertain availability, including a premature handoff that a consumer assertion catches. [Adapter contract and worked example](docs/adapter.md#check-a-handoff-before-a-reservation-exists) · [Scenario catalogue and acceptance tests](docs/acceptance.md)
 
 ## Run the demo
 
