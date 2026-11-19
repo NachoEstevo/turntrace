@@ -4,7 +4,46 @@ A caller asks for Tuesday, then changes the booking to Thursday. The agent says 
 
 Turntrace is a terminal debugger for that race. It runs a synthetic voice agent, booking provider and playback device on a virtual clock. Each decision has an event ID. A saved JSON trace lets a colleague reproduce the same decision and inspect the evidence available to the agent when it spoke.
 
-The [recovery demo](#recover-after-a-lost-acknowledgement) starts with a different question. A provider committed a booking, its acknowledgement was lost and the agent restarted. Can the new instance safely tell the caller that the booking exists?
+To install the private tarball, download the archive from the [v0.1.0 release](https://github.com/NachoEstevo/turntrace/releases/tag/v0.1.0) and follow the [installation guide](docs/distribution.md). The commands below use a built checkout. After installation, use `npm exec --offline -- turntrace` in place of `node dist/cli/index.js`. The installed fixtures are in `node_modules/turntrace/examples/`.
+
+## Find the first wrong decision
+
+The bundled customer-service adapter requests a Tuesday reservation. The provider commits it and its reply gets lost. When a Thursday correction and the agent's review timer become eligible together, their order determines what the agent tells the caller. From a checkout, run `npm ci` and `npm run build`, then explore both orders.
+
+```sh
+node dist/cli/index.js explore examples/lab/customer-race.json --adapter examples/lab/customer-agent.mjs --max-runs 200 --out-dir histories --out witness.json
+node dist/cli/index.js replay witness.json --adapter examples/lab/customer-agent.mjs
+```
+
+Both histories leave Tuesday booked. In one, the timer fires first and the agent opens a manual review, then adds the Thursday correction to that review. In the other, the correction arrives first and the agent confirms Thursday with no supporting receipt. The checker reports `claim.supported` at the speech event. Both commands exit with status 1 because they found that violation. Replay prints the event ID, its causal parents, the agent's claim, the device's playback and the provider's reservation. [Scenario](examples/lab/customer-race.json) · [Adapter](examples/lab/customer-agent.mjs)
+
+For a smaller built-in example, replay the [saved failure](examples/lab/premature-ack.trace.json). The agent acknowledged a caller input before its receipt was durable. To see which perturbations the reducer can remove, run the original case and compare the files.
+
+```sh
+node dist/cli/index.js replay examples/lab/premature-ack.trace.json
+node dist/cli/index.js run examples/lab/reduce.json --out full.json
+node dist/cli/index.js minimize full.json --out smaller.json
+node dist/cli/index.js replay smaller.json
+```
+
+All four commands return 1. The first finding in both generated histories is `input.durable-ack` for the same input. The reducer removes optional groups and actions, reruns the scenario and verifies the retained history by replay. It keeps the original file. `--max-attempts` and `--max-milliseconds` bound its search. The time budget is checked between attempts. Use fresh filenames and a new directory each time.
+
+## Explore a scenario
+
+`run` chooses one history. `explore` enumerates the eligible choices in a fresh world for each branch. Scripted events can inject a crash, restart, lost reply, duplicate or delayed delivery. Set `--max-runs`, `--max-steps`, `--max-decisions`, `--max-restarts` and `--max-duplicates` to bound the campaign. Its report counts terminal, blocked and truncated histories, observed violations and pending prefixes. A terminal history can contain a property violation.
+
+```sh
+node dist/cli/index.js explore examples/lab/commit-race.json --max-runs 200 --json
+node dist/cli/index.js explore examples/lab/recovery.json --seed 73 --samples 20 --max-runs 20 --profile --json
+node dist/cli/index.js schema scenario
+node dist/cli/index.js schema command
+node dist/cli/index.js schema trace
+node dist/cli/index.js schema campaign
+```
+
+The second command takes a reproducible sample. Its coverage remains `sampled` even when every selected history passes. `--profile` writes elapsed time, CPU time, peak process memory, platform and budgets to stderr. Machine-readable results go to stdout. Save a witness with `--out`. Add `--out-dir` to write each history as it finishes. The final `index.json` records their filenames, digests, statuses and the selected witness. If the process stops early, completed history files remain replayable and a missing index identifies an interrupted campaign.
+
+Third-party policies can receive domain-specific `signal` actions and return structured `observe` commands. With `expectation: "observe"`, consumers evaluate their own domain decisions from those recorded observations. The adapter guide covers state, evidence, the permitted local import graph and the fingerprint required for replay. [Adapter contract](docs/adapter.md) · [Scenario catalogue and acceptance tests](docs/acceptance.md)
 
 ## Run the demo
 
@@ -86,9 +125,10 @@ The file contains the scenario, policy, schedule, ordered action IDs, observed e
 
 | Exit code | Meaning |
 | --- | --- |
-| 0 | All selected booking checks passed, or help was displayed. |
-| 1 | At least one booking check failed. This is expected for the full demo and for a verified replay of the buggy `commit-first` case. |
+| 0 | The selected histories passed. Coverage in the report identifies enumeration or sampling. Help and schema output also return 0. |
+| 1 | An observed property violation, including a verified replay or reduction of a failing case. This takes precedence over an unfinished branch or campaign. |
 | 2 | The CLI could not run or verify the case. Examples include a missing file, an incompatible build, a disabled choice and an observation that differs during replay. |
+| 3 | The requested exploration is inconclusive. Inspect blocked or truncated branches, pending prefixes and remaining samples. |
 
 ## Tests and scope
 
@@ -97,6 +137,6 @@ npm test
 node dist/cli/index.js --help
 ```
 
-`npm test` builds the TypeScript sources and runs scheduler, booking, recovery, verifier, replay and CLI regressions. CI checks the original schema 1 booking trace and the schema 2 recovery example on Windows and Linux with Node 22.13.0 and 24.x.
+`npm test` builds the TypeScript sources and runs scheduler, actor, policy, verifier, replay, reduction and CLI regressions. These include independent enumeration of small graphs, provider capability combinations and deliberately faulty agents. The original schema 1 booking trace and schema 2 recovery trace retain their recorded identities. Scenario-driven runs use trace schema 3.
 
-The booking-race fixture covers two selected schedules. The recovery fixture fixes one crash after a committed create and a lost reply, and varies provider capabilities and agent policy. Each run starts with a new world. The journal survives a simulated agent restart in memory. Crashes of the CLI or disk, further crash points, repeated losses, exhaustive exploration and real audio are outside these fixtures. Device playback is a start marker. Both simulations run offline after dependencies are installed. [Architecture and evidence boundaries](docs/architecture.md)
+The two historical demos use fixed schedules. The scenario lab explores interleavings of explicitly modeled actions on an integer virtual clock. The journal survives an agent restart in simulated storage. The device records structured playback and flush markers. Physical storage failures, real provider behavior and what a caller heard require separate integration measurements. The examples use synthetic data and run offline after dependencies are installed. [Architecture and evidence boundaries](docs/architecture.md)

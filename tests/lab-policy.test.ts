@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseScenario, type AgentAdapter, type LabEvent, type Scenario } from "../src/lab/contract.js";
+import { parseScenario, type AgentAdapter, type JsonObject, type LabEvent, type Scenario } from "../src/lab/contract.js";
 import { builtinPolicy } from "../src/lab/policy.js";
 import { inspectLab } from "../src/lab/verify.js";
 import { executeWorld } from "../src/lab/world.js";
@@ -171,6 +171,26 @@ describe("cooperative policy and observable booking contract", () => {
     expect(inspectLab(hiddenIdentity, scenario, true).findings).toContainEqual(
       expect.objectContaining({ property: "dispatch.booking", eventId: sends[2]!.id }),
     );
+  });
+
+  it("requires a durable provider identity to amend after a restart without a fresh lookup", () => {
+    const { events, scenario } = trial([order("original", "Tuesday", 0), order("correction", "Thursday", 12)]);
+    const amend = events.filter(e => e.kind === "request.sent").at(-1)!;
+    const prefix = events.slice(0, events.indexOf(amend));
+    const saved = prefix.filter(e => e.kind === "store.committed").at(-1)!;
+    const snapshot = saved.payload.snapshot as JsonObject;
+    function recover(storeBookingId: boolean) {
+      const restored = storeBookingId ? { ...snapshot, bookingId: "booking-1" } : snapshot;
+      const amendedPrefix = prefix.map(e => e.payload.requestId === saved.payload.requestId && e.payload.snapshot
+        ? { ...e, payload: { ...e.payload, snapshot: restored } } : e);
+      return inspectLab([...amendedPrefix,
+        { ...amend, id: "down", kind: "agent.crashed", payload: { epoch: 1 } },
+        { ...amend, id: "up", kind: "agent.restarted", payload: { epoch: 2, revision: saved.payload.revision!, snapshot: restored } },
+        { ...amend, payload: { ...amend.payload, epoch: 2 } },
+      ], scenario, false);
+    }
+    expect(recover(true).findings).toEqual([]);
+    expect(recover(false).findings.map(finding => finding.property)).toEqual(["dispatch.booking"]);
   });
 
   it("asks for reconfirmation in two one-shot histories with the same recovered snapshot", () => {

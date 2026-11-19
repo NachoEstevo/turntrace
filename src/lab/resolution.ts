@@ -2,7 +2,7 @@ import type { JsonObject, LabEvent, Scenario } from "./contract.js";
 
 /** Observable grounds the active instance has for handing off an unresolved booking. */
 export class ResolutionEvidence {
-  private readonly inFlight = new Map<string, { key: string; timedOut: boolean }>();
+  private readonly inFlight = new Map<string, { key: string; day: string | null; timedOut: boolean }>();
   private readonly rejected = new Set<string>();
   private recoveredKey: string | null = null;
   private rejectedInput: string | null = null;
@@ -28,7 +28,9 @@ export class ResolutionEvidence {
         this.rejectedInput = p.accepted === false ? inputId : null;
         break;
       case "request.sent":
-        this.inFlight.set(String(p.attemptId), { key: String(operation.key), timedOut: false });
+        this.inFlight.set(String(p.attemptId), {
+          key: String(operation.key), day: typeof operation.day === "string" ? operation.day : null, timedOut: false,
+        });
         break;
       case "timer.fired":
         // An adapter may name a shared deadline independently of its request IDs.
@@ -37,7 +39,14 @@ export class ResolutionEvidence {
       case "reply.delivered": {
         const key = String(operation.key);
         this.inFlight.delete(String(p.attemptId));
-        if (p.outcome === "rejected" || p.outcome === "missing") this.rejected.add(key);
+        if (p.outcome === "rejected" || p.outcome === "missing") {
+          // An empty lookup before the agent ever attempted a mutation is an
+          // answer. It can be ambiguous after an earlier create or recovery.
+          if (operation.kind !== "query" || key === this.recoveredKey ||
+              [...this.inFlight.values()].some(attempt => attempt.key === key && attempt.day !== null)) {
+            this.rejected.add(key);
+          }
+        }
         else {
           this.rejected.delete(key);
           if (key === this.recoveredKey) this.recoveredKey = null;
@@ -55,13 +64,17 @@ export class ResolutionEvidence {
     receipts: ReadonlyMap<string, { day: string }>): boolean {
     if (!day) return false;
     if (inputId === this.rejectedInput) return true;
+    const pending = [...this.inFlight.values()];
+    if ([...receipts.values()].some(receipt => receipt.day === day) &&
+        !pending.some(attempt => attempt.day !== null && attempt.day !== day)) return false;
     const hasCurrentKey = (key: string) => key === journal.createKey || key === journal.operationKey;
     if ([...this.rejected].some(hasCurrentKey)) return true;
     // A restarted opaque provider client can see the durable intent, but the
     // journal alone does not establish whether the old instance sent the create.
     if (!scenario.provider.query && !scenario.provider.idempotent &&
         this.recoveredKey !== null && hasCurrentKey(this.recoveredKey)) return true;
-    if ([...this.inFlight.values()].some(attempt => attempt.timedOut && hasCurrentKey(attempt.key))) return true;
+    if (pending.some(attempt => attempt.timedOut && hasCurrentKey(attempt.key) &&
+        (attempt.day !== null || attempt.key === this.recoveredKey))) return true;
     return !scenario.provider.amend && [...receipts.values()].some(receipt => receipt.day !== day);
   }
 }

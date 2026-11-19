@@ -1,0 +1,543 @@
+{
+  "schemaVersion": 3,
+  "manifest": {
+    "engine": "turntrace/lab-1",
+    "implementationSha256": "02caaf6e2806f0fa9875b59715e62fd41b18b1820f75a4e124036da843507125",
+    "scenarioSha256": "0d4d13c9b8f5d15e44cefd964d34a2e0aae3d82df1dd04d45420cb62f97340e1",
+    "adapter": {
+      "kind": "builtin",
+      "id": "premature-ack",
+      "version": "1",
+      "sha256": "46bb785b1db6bf1f9809be0bfe4db452429110fe374d1de1013f977edb7c1fa9",
+      "runtime": null,
+      "lockfileSha256": null
+    }
+  },
+  "scenario": {
+    "schemaVersion": 1,
+    "id": "reduce",
+    "policy": "premature-ack",
+    "provider": {
+      "idempotent": true,
+      "query": true,
+      "amend": true
+    },
+    "delivery": "recoverable",
+    "expectation": "confirmed",
+    "delays": {
+      "input": 1,
+      "inputAck": 0,
+      "store": 4,
+      "storeAck": 1,
+      "provider": 1,
+      "providerReply": 1,
+      "speech": 1,
+      "playback": 1,
+      "flush": 1
+    },
+    "fifo": [],
+    "playbackTicks": 2,
+    "actions": [
+      {
+        "id": "caller.thursday",
+        "tick": 0,
+        "parents": [],
+        "kind": "input",
+        "inputId": "request-thursday",
+        "day": "Thursday"
+      }
+    ]
+  },
+  "options": {
+    "limits": {
+      "maxSteps": 1000,
+      "maxDecisions": 100,
+      "maxRestarts": 8,
+      "maxDuplicates": 16
+    },
+    "seed": null
+  },
+  "choices": [
+    "@boot",
+    "caller.thursday",
+    "@input.8537da42da01e63019ef7e6a.0",
+    "@inputAck.fa05766326883342cd1c7845.0",
+    "@flush.d073dd6cb3fde63ee522a275.0",
+    "@store.2dd163da9cd22823757750f5.0",
+    "@storeAck.41676c28ccf1494610e1b2e0.0",
+    "@inputAck.86a82fbe397ae6d0cabfb1d1.0",
+    "@provider.d9a69f111471c114ce825170.0",
+    "@providerReply.52833fe5bf1cb52116a17e75.0",
+    "@speech.7d04d44cfbc26a132bd58b21.0",
+    "@playback.da226a392bb4957c7b4ce580.0",
+    "@finish.a32864c3e66159a99ead2091",
+    "@timer.9ceae1a67b66d165f1cc450f"
+  ],
+  "alternatives": [
+    [
+      "@boot"
+    ],
+    [
+      "caller.thursday"
+    ],
+    [
+      "@input.8537da42da01e63019ef7e6a.0"
+    ],
+    [
+      "@inputAck.fa05766326883342cd1c7845.0"
+    ],
+    [
+      "@flush.d073dd6cb3fde63ee522a275.0"
+    ],
+    [
+      "@store.2dd163da9cd22823757750f5.0"
+    ],
+    [
+      "@storeAck.41676c28ccf1494610e1b2e0.0"
+    ],
+    [
+      "@inputAck.86a82fbe397ae6d0cabfb1d1.0"
+    ],
+    [
+      "@provider.d9a69f111471c114ce825170.0"
+    ],
+    [
+      "@providerReply.52833fe5bf1cb52116a17e75.0"
+    ],
+    [
+      "@speech.7d04d44cfbc26a132bd58b21.0"
+    ],
+    [
+      "@playback.da226a392bb4957c7b4ce580.0"
+    ],
+    [
+      "@finish.a32864c3e66159a99ead2091"
+    ],
+    [
+      "@timer.9ceae1a67b66d165f1cc450f"
+    ]
+  ],
+  "status": "terminal",
+  "events": [
+    {
+      "id": "@boot",
+      "tick": 0,
+      "parents": [],
+      "actor": "agent",
+      "kind": "agent.started",
+      "payload": {
+        "epoch": 1,
+        "revision": 0,
+        "snapshot": null
+      }
+    },
+    {
+      "id": "caller.thursday",
+      "tick": 0,
+      "parents": [
+        "@boot"
+      ],
+      "actor": "caller",
+      "kind": "caller.spoke",
+      "payload": {
+        "inputId": "request-thursday",
+        "day": "Thursday",
+        "sourceRevision": 1
+      }
+    },
+    {
+      "id": "@input.8537da42da01e63019ef7e6a.0",
+      "tick": 1,
+      "parents": [
+        "caller.thursday"
+      ],
+      "actor": "agent",
+      "kind": "input.delivered",
+      "payload": {
+        "epoch": 1,
+        "inputId": "request-thursday",
+        "day": "Thursday",
+        "sourceRevision": 1,
+        "origin": "caller.thursday"
+      }
+    },
+    {
+      "id": "@input.8537da42da01e63019ef7e6a.0#2",
+      "tick": 1,
+      "parents": [
+        "@input.8537da42da01e63019ef7e6a.0"
+      ],
+      "actor": "agent",
+      "kind": "flush.requested",
+      "payload": {
+        "epoch": 1,
+        "generation": 1
+      }
+    },
+    {
+      "id": "@input.8537da42da01e63019ef7e6a.0#3",
+      "tick": 1,
+      "parents": [
+        "@input.8537da42da01e63019ef7e6a.0#2"
+      ],
+      "actor": "agent",
+      "kind": "input.ackRequested",
+      "payload": {
+        "epoch": 1,
+        "inputId": "request-thursday"
+      }
+    },
+    {
+      "id": "@input.8537da42da01e63019ef7e6a.0#4",
+      "tick": 1,
+      "parents": [
+        "@input.8537da42da01e63019ef7e6a.0#3"
+      ],
+      "actor": "agent",
+      "kind": "store.requested",
+      "payload": {
+        "epoch": 1,
+        "requestId": "write-1-1",
+        "expectedRevision": 0,
+        "snapshot": {
+          "inputIds": [
+            "request-thursday"
+          ],
+          "receipts": [
+            {
+              "inputId": "request-thursday",
+              "day": "Thursday",
+              "sourceRevision": 1
+            }
+          ],
+          "latestInputId": "request-thursday",
+          "sourceRevision": 1,
+          "intentRevision": 1,
+          "day": "Thursday",
+          "createKey": "booking.create.1",
+          "createDay": "Thursday",
+          "operationKey": "booking.create.1"
+        }
+      }
+    },
+    {
+      "id": "@inputAck.fa05766326883342cd1c7845.0",
+      "tick": 1,
+      "parents": [
+        "@input.8537da42da01e63019ef7e6a.0#3"
+      ],
+      "actor": "caller",
+      "kind": "input.acknowledged",
+      "payload": {
+        "epoch": 1,
+        "inputId": "request-thursday"
+      }
+    },
+    {
+      "id": "@flush.d073dd6cb3fde63ee522a275.0",
+      "tick": 2,
+      "parents": [
+        "@input.8537da42da01e63019ef7e6a.0#2"
+      ],
+      "actor": "device",
+      "kind": "device.flushed",
+      "payload": {
+        "epoch": 1,
+        "generation": 1,
+        "floor": 1
+      }
+    },
+    {
+      "id": "@store.2dd163da9cd22823757750f5.0",
+      "tick": 5,
+      "parents": [
+        "@input.8537da42da01e63019ef7e6a.0#4",
+        "@boot"
+      ],
+      "actor": "store",
+      "kind": "store.committed",
+      "payload": {
+        "epoch": 1,
+        "requestId": "write-1-1",
+        "expectedRevision": 0,
+        "snapshot": {
+          "inputIds": [
+            "request-thursday"
+          ],
+          "receipts": [
+            {
+              "inputId": "request-thursday",
+              "day": "Thursday",
+              "sourceRevision": 1
+            }
+          ],
+          "latestInputId": "request-thursday",
+          "sourceRevision": 1,
+          "intentRevision": 1,
+          "day": "Thursday",
+          "createKey": "booking.create.1",
+          "createDay": "Thursday",
+          "operationKey": "booking.create.1"
+        },
+        "accepted": true,
+        "revision": 1
+      }
+    },
+    {
+      "id": "@storeAck.41676c28ccf1494610e1b2e0.0",
+      "tick": 6,
+      "parents": [
+        "@store.2dd163da9cd22823757750f5.0"
+      ],
+      "actor": "agent",
+      "kind": "store.ackDelivered",
+      "payload": {
+        "epoch": 1,
+        "requestId": "write-1-1",
+        "expectedRevision": 0,
+        "snapshot": {
+          "inputIds": [
+            "request-thursday"
+          ],
+          "receipts": [
+            {
+              "inputId": "request-thursday",
+              "day": "Thursday",
+              "sourceRevision": 1
+            }
+          ],
+          "latestInputId": "request-thursday",
+          "sourceRevision": 1,
+          "intentRevision": 1,
+          "day": "Thursday",
+          "createKey": "booking.create.1",
+          "createDay": "Thursday",
+          "operationKey": "booking.create.1"
+        },
+        "accepted": true,
+        "revision": 1
+      }
+    },
+    {
+      "id": "@storeAck.41676c28ccf1494610e1b2e0.0#2",
+      "tick": 6,
+      "parents": [
+        "@storeAck.41676c28ccf1494610e1b2e0.0"
+      ],
+      "actor": "agent",
+      "kind": "input.ackRequested",
+      "payload": {
+        "epoch": 1,
+        "inputId": "request-thursday"
+      }
+    },
+    {
+      "id": "@storeAck.41676c28ccf1494610e1b2e0.0#3",
+      "tick": 6,
+      "parents": [
+        "@storeAck.41676c28ccf1494610e1b2e0.0#2"
+      ],
+      "actor": "agent",
+      "kind": "request.sent",
+      "payload": {
+        "epoch": 1,
+        "requestId": "request-1-1",
+        "attemptId": "@attempt.75244229a8d68f16bb24adcc",
+        "operation": {
+          "kind": "create",
+          "key": "booking.create.1",
+          "day": "Thursday"
+        }
+      }
+    },
+    {
+      "id": "@storeAck.41676c28ccf1494610e1b2e0.0#4",
+      "tick": 6,
+      "parents": [
+        "@storeAck.41676c28ccf1494610e1b2e0.0#3"
+      ],
+      "actor": "agent",
+      "kind": "timer.scheduled",
+      "payload": {
+        "epoch": 1,
+        "timerId": "request-1-1",
+        "delayTicks": 12
+      }
+    },
+    {
+      "id": "@inputAck.86a82fbe397ae6d0cabfb1d1.0",
+      "tick": 6,
+      "parents": [
+        "@storeAck.41676c28ccf1494610e1b2e0.0#2"
+      ],
+      "actor": "caller",
+      "kind": "input.acknowledged",
+      "payload": {
+        "epoch": 1,
+        "inputId": "request-thursday"
+      }
+    },
+    {
+      "id": "@provider.d9a69f111471c114ce825170.0",
+      "tick": 7,
+      "parents": [
+        "@storeAck.41676c28ccf1494610e1b2e0.0#3"
+      ],
+      "actor": "provider",
+      "kind": "provider.committed",
+      "payload": {
+        "epoch": 1,
+        "requestId": "request-1-1",
+        "attemptId": "@attempt.75244229a8d68f16bb24adcc",
+        "operation": {
+          "kind": "create",
+          "key": "booking.create.1",
+          "day": "Thursday"
+        },
+        "outcome": "committed",
+        "bookingId": "booking-1",
+        "day": "Thursday"
+      }
+    },
+    {
+      "id": "@providerReply.52833fe5bf1cb52116a17e75.0",
+      "tick": 8,
+      "parents": [
+        "@provider.d9a69f111471c114ce825170.0"
+      ],
+      "actor": "agent",
+      "kind": "reply.delivered",
+      "payload": {
+        "epoch": 1,
+        "requestId": "request-1-1",
+        "attemptId": "@attempt.75244229a8d68f16bb24adcc",
+        "operation": {
+          "kind": "create",
+          "key": "booking.create.1",
+          "day": "Thursday"
+        },
+        "outcome": "committed",
+        "bookingId": "booking-1",
+        "day": "Thursday"
+      }
+    },
+    {
+      "id": "@providerReply.52833fe5bf1cb52116a17e75.0#2",
+      "tick": 8,
+      "parents": [
+        "@providerReply.52833fe5bf1cb52116a17e75.0"
+      ],
+      "actor": "agent",
+      "kind": "claim.emitted",
+      "payload": {
+        "epoch": 1,
+        "generation": 1,
+        "claim": {
+          "bookingId": "booking-1",
+          "day": "Thursday"
+        },
+        "fragmentId": "@fragment.fe35bfb470f846d193c4c901"
+      }
+    },
+    {
+      "id": "@speech.7d04d44cfbc26a132bd58b21.0",
+      "tick": 9,
+      "parents": [
+        "@providerReply.52833fe5bf1cb52116a17e75.0#2"
+      ],
+      "actor": "device",
+      "kind": "device.queued",
+      "payload": {
+        "epoch": 1,
+        "generation": 1,
+        "claim": {
+          "bookingId": "booking-1",
+          "day": "Thursday"
+        },
+        "fragmentId": "@fragment.fe35bfb470f846d193c4c901"
+      }
+    },
+    {
+      "id": "@playback.da226a392bb4957c7b4ce580.0",
+      "tick": 10,
+      "parents": [
+        "@speech.7d04d44cfbc26a132bd58b21.0"
+      ],
+      "actor": "device",
+      "kind": "device.playbackStarted",
+      "payload": {
+        "epoch": 1,
+        "generation": 1,
+        "claim": {
+          "bookingId": "booking-1",
+          "day": "Thursday"
+        },
+        "fragmentId": "@fragment.fe35bfb470f846d193c4c901"
+      }
+    },
+    {
+      "id": "@finish.a32864c3e66159a99ead2091",
+      "tick": 12,
+      "parents": [
+        "@playback.da226a392bb4957c7b4ce580.0"
+      ],
+      "actor": "device",
+      "kind": "device.playbackEnded",
+      "payload": {
+        "epoch": 1,
+        "generation": 1,
+        "claim": {
+          "bookingId": "booking-1",
+          "day": "Thursday"
+        },
+        "fragmentId": "@fragment.fe35bfb470f846d193c4c901"
+      }
+    },
+    {
+      "id": "@timer.9ceae1a67b66d165f1cc450f",
+      "tick": 18,
+      "parents": [
+        "@storeAck.41676c28ccf1494610e1b2e0.0#4"
+      ],
+      "actor": "agent",
+      "kind": "timer.fired",
+      "payload": {
+        "epoch": 1,
+        "timerId": "request-1-1",
+        "delayTicks": 12
+      }
+    }
+  ],
+  "result": {
+    "verdict": "fail",
+    "findings": [
+      {
+        "property": "input.durable-ack",
+        "eventId": "@input.8537da42da01e63019ef7e6a.0#3",
+        "detail": "Input request-thursday was acknowledged before its ID, day and revision were durable.",
+        "signature": "[\"input.durable-ack\",\"request-thursday\",\"Thursday\"]"
+      }
+    ],
+    "latestIntent": {
+      "inputId": "request-thursday",
+      "day": "Thursday"
+    },
+    "bookings": [
+      {
+        "bookingId": "booking-1",
+        "day": "Thursday"
+      }
+    ],
+    "played": [
+      {
+        "eventId": "@playback.da226a392bb4957c7b4ce580.0",
+        "bookingId": "booking-1",
+        "day": "Thursday",
+        "generation": 1
+      }
+    ],
+    "review": null,
+    "reconfirm": null
+  },
+  "digest": "db865968b025d6a0783984749329ec30df1eeea202e238a9aeb9647018311f0f"
+}

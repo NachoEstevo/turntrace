@@ -360,6 +360,10 @@ export function inspectLab(events: readonly LabEvent[], scenario: Scenario, quie
   report.bookings = Array.from(bookings, ([bookingId, day]) => ({ bookingId, day }));
   if (!quiescent) return report;
   const endId = events.at(-1)?.id ?? "terminal";
+  // A delivered late reply may settle a case the agent previously escalated.
+  if (lastResolution === "review" && !resolution.canReview(scenario, journal, heardId, heard, receipts)) {
+    lastResolution = null;
+  }
   const day = report.latestIntent?.day;
   const confirmed = !!day && lastResolution === "claim" && bookings.size === 1 &&
     lastPlay?.day === day && bookings.get(lastPlay.bookingId) === day;

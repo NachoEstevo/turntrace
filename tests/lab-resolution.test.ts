@@ -25,7 +25,7 @@ describe("independent handoff evidence", () => {
     const report = simulate((next, input) => ({
       next, commands: input.kind === "input" ? [{ kind: "review", reason: "I cannot look up a receipt." }] : [],
     }), "settled", [first]);
-    expect(report.findings.map(f => f.property)).toEqual(["handoff.supported"]);
+    expect(report.findings.map(f => f.property)).toEqual(["handoff.supported", "progress.settled"]);
     expect(report.bookings).toEqual([]);
   });
 
@@ -46,6 +46,12 @@ describe("independent handoff evidence", () => {
     const actions = [{ id: "lost", kind: "drop-next", channel: "providerReply", tick: 0 }, first];
     expect(simulate(step, "review", actions).findings).toEqual([]);
     expect(simulate(step, "review", [...actions, second]).findings.map(f => f.property)).toEqual(["progress.review"]);
+
+    const delayed = [{ id: "slow", kind: "delay-next", channel: "providerReply", delayTicks: 10, tick: 0 }, first];
+    const resolved = simulate(step, "review", delayed);
+    expect(resolved.review).not.toBeNull();
+    expect(resolved.bookings).toEqual([{ bookingId: "booking-1", day: "Tuesday" }]);
+    expect(resolved.findings.map(f => f.property)).toEqual(["progress.review"]);
   });
 
   it("allows a restarted single-delivery agent to request reconfirmation before further delivery", () => {
