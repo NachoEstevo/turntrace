@@ -1,6 +1,6 @@
-# Installing the private tarball
+# Install the release tarball
 
-Use Node.js 22.13 or later in the 22.x line, or Node.js 24.x. Build `turntrace-0.2.0.tgz` from the checkout with `npm ci` followed by `npm pack`, or download the matching private build artifact from the Pack workflow. The pack lifecycle compiles TypeScript and checks that every file in `dist/` matches the current source layout. A stale file left by a previous build stops packaging and identifies the unexpected entry.
+Use Node.js 22.13 or later in the 22.x line, or Node.js 24.x. Download the tarball for the compiled CLI and bundled scenarios. The release also provides SHA-256 checksums for its downloads. [Turntrace v0.2.0 tarball](https://github.com/NachoEstevo/turntrace/releases/download/v0.2.0/turntrace-0.2.0.tgz) · [Checksums](https://github.com/NachoEstevo/turntrace/releases/download/v0.2.0/SHA256SUMS)
 
 Start in an empty directory containing the tarball. Run the commands on separate lines in Bash or PowerShell. Keep the quotes around `'--'` so PowerShell passes the separator to npm.
 
@@ -29,12 +29,12 @@ The customer-service adapter sets a deadline while a booking is pending. Explore
 
 ```sh
 npm exec --offline '--' turntrace explore ./node_modules/turntrace/examples/lab/customer-race.json --adapter ./node_modules/turntrace/examples/lab/customer-agent.mjs --max-runs 200 --out-dir customer-histories
-npm exec --offline '--' turntrace compare customer-histories/history-00001.json customer-histories/history-00002.json --adapter ./node_modules/turntrace/examples/lab/customer-agent.mjs --out-dir paired --json
+npm exec --offline '--' turntrace compare customer-histories/history-00002.json customer-histories/history-00001.json --adapter ./node_modules/turntrace/examples/lab/customer-agent.mjs --out-dir paired --json
 npm exec --offline '--' turntrace replay paired/left.json --adapter ./node_modules/turntrace/examples/lab/customer-agent.mjs
 npm exec --offline '--' turntrace replay paired/right.json --adapter ./node_modules/turntrace/examples/lab/customer-agent.mjs
 ```
 
-For this fixture, `customer-histories/index.json` identifies `history-00001.json` as the failure. The comparison returns `isolated` and writes its report to `paired/comparison.json`. Replaying `left.json` reproduces `claim.supported` and exits with status 1. Replaying `right.json` exits with status 0. Pass the trusted adapter explicitly to each command.
+For this fixture, `customer-histories/index.json` identifies `history-00001.json` as the failure. The comparison returns `isolated` and writes its report to `paired/comparison.json`. Replaying `left.json` shows the agent requesting review and exits with status 0. Replaying `right.json` reproduces `claim.supported` and exits with status 1. Pass the trusted adapter explicitly to each command.
 
 To replay a local-adapter trace from an earlier installation, keep the adapter's original source tree, its nearest `package-lock.json` if one existed and its exact Node version. The adapter fingerprint includes all three. A package upgrade can change the lockfile even when the adapter source is identical.
 
@@ -56,11 +56,11 @@ Each command returns 1 because the witness retains the same violation. Choose fr
 
 Run `npm run test:pack` in the checkout after `npm ci`. This command creates a tarball, checks its file list and installs it with production dependencies in a fresh temporary project. It exercises the installed CLI and public ESM API, replays all three bundled traces, and checks the diagnostic for an edited verdict. It also explores the customer adapter, compares a failing history with a passing one and replays both files from the comparison directory. To check an existing archive, use `npm run test:pack '--' /path/to/turntrace-0.2.0.tgz`. The command needs a `tar` executable on the path.
 
-The Pack workflow builds the archive once and sends the same artifact to Linux and Windows consumers on Node 22.13 and 24. It checks the local links inside the installed guides, type-checks a consumer that imports the public API and runs the ESM entry point. Package metadata marks the package private. The tarball includes the Apache license, the third-party notices and Zod's MIT license, compiled modules, public types, synthetic fixtures and user documentation.
+To build the tarball yourself, run `npm ci` and `npm pack` from a checkout of the release tag. Packaging checks the contents of `dist/` against the source layout to detect stale compiled files. The Pack workflow builds the archive once and sends the same artifact to Linux and Windows consumers on Node 22.13 and 24. It checks the local links inside the installed guides, type-checks a consumer that imports the public API and runs the ESM entry point. The tarball includes the Apache license, the third-party notices and Zod's MIT license, compiled modules, public types, synthetic fixtures and user documentation.
 
 ## Weekly recovery profile
 
-The private **Exploration profile** GitHub Actions workflow runs on Mondays at 04:37 UTC. Use **Run workflow** in Actions to start it manually. It exercises the bundled recovery scenario with seed 73 and a budget of 200 samples. After building the project, the same command writes the two reports locally.
+The **Exploration profile** GitHub Actions workflow runs on Mondays at 04:37 UTC. Repository maintainers can also start it with **Run workflow** in Actions. It exercises the bundled recovery scenario with seed 73 and a budget of 200 samples. After building the project, the same command writes the two reports locally.
 
 ```sh
 node dist/cli/index.js explore examples/lab/recovery.json --seed 73 --samples 200 --max-runs 200 --profile --json > campaign.json 2> resources.json

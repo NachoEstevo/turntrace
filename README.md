@@ -1,25 +1,57 @@
 # Turntrace
 
-A caller asks for Tuesday, then changes the booking to Thursday. The agent says “Thursday” and the device starts playing that confirmation. Which day did the provider actually book?
+A caller changes a booking from Tuesday to Thursday. The voice agent says “Thursday,” its playback device starts the confirmation, and the booking provider still holds Tuesday.
 
-Turntrace is a terminal debugger for that race. It runs a synthetic voice agent, booking provider and playback device on a virtual clock. Each decision has an event ID. A saved JSON trace lets a colleague reproduce the same decision and inspect the evidence available to the agent when it spoke.
+Turntrace is a terminal debugger for these timing bugs. It runs a synthetic caller, agent, provider and playback device on a virtual clock. It can explore delivery orders, identify a pair of events whose order changes the outcome, and save both executions as replayable JSON. The trace shows which provider replies had reached the agent when it spoke.
 
-The commands below use a built checkout. You can also install the v0.2.0 private tarball and use `npm exec --offline '--' turntrace` in place of `node dist/cli/index.js`. The installed fixtures are in `node_modules/turntrace/examples/`. [v0.2.0 release](https://github.com/NachoEstevo/turntrace/releases/tag/v0.2.0) · [Installation guide](docs/distribution.md)
+## Reproduce the booking race
 
-## Find the first wrong decision
+Use Git, npm and Node.js 22.13.0 or later in the 22.x line, or Node.js 24.x. Run these commands on separate lines in PowerShell or Bash. The demo exits **1** when it reproduces the faulty confirmation.
 
-The bundled customer-service adapter requests a Tuesday reservation. The provider commits it and its reply gets lost. When a Thursday correction and the agent's review timer become eligible together, their order determines what the agent tells the caller. From a checkout, run `npm ci` and `npm run build`, then explore both orders.
+```sh
+git clone https://github.com/NachoEstevo/turntrace.git
+cd turntrace
+npm ci
+npm run build
+npm run demo
+```
+
+```text
+Delivery order     Policy  Agent said  Device played  Provider booked  Check
+correction-first   buggy   Thursday    Thursday       Thursday         PASS
+correction-first   fixed   Thursday    Thursday       Thursday         PASS
+commit-first       buggy   Thursday    Thursday       Tuesday          FAIL
+commit-first       fixed   Thursday    Thursday       Thursday         PASS
+```
+
+In the failing row, the provider commits Tuesday before the correction arrives. The agent treats a rejected revision as a success and confirms Thursday. The checker flags `claim.supported` at the first unsupported claim, before playback. The fixed policy amends the booking and waits for a Thursday receipt. To inspect its timeline, run `node dist/cli/index.js demo --order commit-first --policy fixed` (exit 0).
+
+The simulations run locally after dependency installation. To use the released CLI from another project, install the tarball and follow the packaged example. [Download Turntrace v0.2.0](https://github.com/NachoEstevo/turntrace/releases/download/v0.2.0/turntrace-0.2.0.tgz) · [Installation guide](docs/distribution.md)
+
+## Isolate the ordering change that caused a failure
+
+In this example a customer-service adapter requests Tuesday. The provider commits the booking, but the reply gets lost. At tick 10 the caller's Thursday correction and the agent's review timer are ready at the same time. From the built checkout, explore both orders and compare the saved passing and failing histories. Use fresh output directories.
 
 ```sh
 node dist/cli/index.js explore examples/lab/customer-race.json --adapter examples/lab/customer-agent.mjs --max-runs 8 --out-dir histories
 node dist/cli/index.js compare histories/history-00002.json histories/history-00001.json --adapter examples/lab/customer-agent.mjs --out-dir diagnosis
+```
+
+The campaign finds two terminal histories and exits **1**. The comparison prints **ISOLATED** and exits **0**. It replays both inputs, holds their first nine scheduling choices fixed, swaps the two ready events, then applies the same rule to choose subsequent events. The provider holds Tuesday in both executions. [Scenario](examples/lab/customer-race.json) · [Adapter](examples/lab/customer-agent.mjs)
+
+| Order at tick 10 | Agent decision | Device outcome | Replay |
+| --- | --- | --- | --- |
+| Review timer, then correction | Opens a review and adds Thursday when the correction arrives | No confirmation plays | `left.json` exits 0 |
+| Correction, then review timer | Confirms Thursday without a provider receipt. The checker reports `claim.supported` | Thursday starts playing at tick 12 | `right.json` exits 1 |
+
+```sh
 node dist/cli/index.js replay diagnosis/left.json --adapter examples/lab/customer-agent.mjs
 node dist/cli/index.js replay diagnosis/right.json --adapter examples/lab/customer-agent.mjs
 ```
 
-The campaign finds two terminal histories and exits 1. At tick 10, history 2 runs the review timer first. The agent opens a manual review and adds the Thursday correction when it arrives. History 1 delivers Thursday first. When its timer fires, the agent confirms a Thursday reservation without a receipt. The first finding is `claim.supported` at tick 10. The device starts playing that confirmation at tick 12. The provider holds Tuesday in both histories. [Scenario](examples/lab/customer-race.json) · [Adapter](examples/lab/customer-agent.mjs)
+The release also includes a 24-history example where the first observed difference is harmless. Turntrace isolates the later timer/correction swap. Its archived adapter traces require Node **22.13.0** to replay. [Download the worked example](https://github.com/NachoEstevo/turntrace/releases/download/v0.2.0/turntrace-0.2.0-noisy-race.zip) · [Comparison options and evidence](docs/acceptance.md#compare-two-histories)
 
-`compare` replays both input traces. The first scheduling difference can be harmless. To isolate the difference that changed the outcome, the command generates two witnesses with the same prefix, runs two eligible actions in opposite orders and applies the same deterministic scheduling rule afterward. Here that swap reproduces the passing result on the left and the exact first finding on the right. The comparison exits 0. Replaying its witnesses exits 0 and 1 respectively. Use a new directory for each command that writes files. For other agents, `--observation NAME` targets a difference in a recorded decision. [Comparison options and evidence](docs/acceptance.md#compare-two-histories)
+## Reduce a single failure
 
 For a smaller built-in example, replay the [saved failure](examples/lab/premature-ack.trace.json). The agent acknowledged a caller input before its receipt was durable. To see which perturbations the reducer can remove, run the original case and compare the files.
 
@@ -48,34 +80,6 @@ node dist/cli/index.js schema campaign
 The second command takes a reproducible sample. Its coverage remains `sampled` even when every selected history passes. `--profile` writes elapsed time, CPU time, peak process memory, platform and budgets to stderr. Machine-readable results go to stdout. Save a witness with `--out`. Add `--out-dir` to write each history as it finishes. The final `index.json` records their filenames, digests, statuses and the selected witness. If the process stops early, completed history files remain replayable and a missing index identifies an interrupted campaign.
 
 Third-party policies can receive domain-specific `signal` actions and return structured `observe` commands. With `expectation: "observe"`, consumers check their own decisions against the signals actually delivered before each decision. The guide works through a handoff caused by uncertain availability, including a premature handoff that a consumer assertion catches. [Adapter contract and worked example](docs/adapter.md#check-a-handoff-before-a-reservation-exists) · [Scenario catalogue and acceptance tests](docs/acceptance.md)
-
-## Run the demo
-
-Use Node.js 22.13.0 or later in the 22.x line, or Node.js 24.x, with npm. From the repository root in PowerShell or a Linux shell, run these commands on separate lines.
-
-```sh
-npm ci
-npm run build
-npm run demo
-```
-
-```text
-Delivery order     Policy  Agent said  Device played  Provider booked  Check
-correction-first   buggy   Thursday    Thursday       Thursday         PASS
-correction-first   fixed   Thursday    Thursday       Thursday         PASS
-commit-first       buggy   Thursday    Thursday       Tuesday          FAIL
-commit-first       fixed   Thursday    Thursday       Thursday         PASS
-```
-
-Both orders start with the same pending Tuesday request. In `correction-first`, the provider accepts the Thursday revision while the request is pending and commits Thursday. In `commit-first`, it commits Tuesday before the correction reaches the agent. In both runs, the agent receives the correction before the create acknowledgement.
-
-In the failing timeline, the provider rejects the attempted revision at `provider.revise`. The agent receives the rejection at `reply.revise`, treats it as success and emits a Thursday confirmation at `agent.confirm`. The independent checker flags that last event first. The only commitment the agent had received (`reply.create`) was for Tuesday. The device subsequently starts Thursday playback at `device.play`, while the provider still holds Tuesday.
-
-To see the fix under the same order, run the following command. Look for `request.amend`, `provider.amend` and `reply.amend`. The policy changes the existing reservation and waits for the Thursday commitment to reach the agent before speaking.
-
-```sh
-node dist/cli/index.js demo --order commit-first --policy fixed
-```
 
 ## Recover after a lost acknowledgement
 
