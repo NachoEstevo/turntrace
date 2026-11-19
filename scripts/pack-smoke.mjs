@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -40,7 +40,7 @@ try {
   if (!supplied) {
     run(process.execPath, [npm, "pack", "--pack-destination", scratch], { cwd: root });
   }
-  const entries = run("tar", ["-tzf", archive]).trim().split(/\r?\n/);
+  const entries = run("tar", ["-tzf", basename(archive)], { cwd: dirname(archive) }).trim().split(/\r?\n/);
   const required = [
     "package/package.json", "package/README.md", "package/LICENSE",
     "package/THIRD_PARTY_NOTICES.md", "package/notices/zod-MIT.txt",
