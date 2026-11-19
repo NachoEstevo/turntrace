@@ -40,7 +40,7 @@ The repository includes the failing case. This command should print `Verified re
 npm run replay -- examples/commit-first.buggy.json
 ```
 
-To save and replay a passing case, choose a file in an existing directory. Export replaces that file when the run completes. These commands work in PowerShell and Bash.
+To save and replay a passing case, choose a new filename in an existing directory. If that path already exists, the CLI preserves the file and exits with status 2. These commands work in PowerShell and Bash.
 
 ```sh
 node dist/cli/index.js demo --order commit-first --policy fixed --out thursday.json

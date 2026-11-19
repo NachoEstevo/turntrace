@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,6 +55,24 @@ it("replays the repair and returns a distinct error for edited evidence", async 
     expect(edited.status).toBe(2);
     expect(edited.stderr).toMatch(/recorded result differs/i);
     expect(edited.stdout).toBe("");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+it("preserves the first trace when another run targets the same filename", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "turntrace collision "));
+  try {
+    const path = join(directory, "booking.json");
+    expect(run("demo", "--order", "commit-first", "--policy", "buggy", "--out", path).status).toBe(1);
+    const original = await readFile(path);
+
+    const collision = run("demo", "--order", "commit-first", "--policy", "fixed", "--out", path);
+    expect(collision.status).toBe(2);
+    expect(collision.stderr).toContain("Trace already exists");
+    expect(await readFile(path)).toEqual(original);
+    expect(await readdir(directory)).toEqual(["booking.json"]);
+    expect(run("replay", path).status).toBe(1);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

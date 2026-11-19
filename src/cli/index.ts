@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { randomUUID } from "node:crypto";
-import { readFile, rename, rm, writeFile } from "node:fs/promises";
+import { link, open, readFile, rm } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import type { Order, Policy } from "../fixtures/booking/index.js";
 import { createTrace, replayTrace, type Trace } from "../trace.js";
@@ -13,7 +13,7 @@ const help = `Turntrace replays a synthetic voice booking in two delivery orders
   turntrace replay <trace.json>
 
 Demo compares all four cases by default. Select one order and policy to see
-individual observations. --out saves that case and replaces an existing file.
+individual observations. Choose a new filename for --out to preserve prior traces.
 Replay runs the recorded choices again and checks the observations and digest.
 
 Exit codes: 0 checks passed, 1 a booking check failed, 2 invalid input or replay.
@@ -21,9 +21,20 @@ From a checkout, use node dist/cli/index.js in place of turntrace.`;
 
 async function saveTrace(path: string, trace: Trace): Promise<void> {
   const temporary = `${path}.${randomUUID()}.tmp`;
+  const file = await open(temporary, "wx");
   try {
-    await writeFile(temporary, JSON.stringify(trace, null, 2) + "\n", { flag: "wx" });
-    await rename(temporary, path);
+    try {
+      await file.writeFile(JSON.stringify(trace, null, 2) + "\n", "utf8");
+    } finally {
+      await file.close();
+    }
+    // Publish the complete file atomically, including when two exports choose the same name.
+    await link(temporary, path);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "EEXIST") {
+      throw new Error(`Trace already exists at ${path}. Choose a new filename.`);
+    }
+    throw error;
   } finally {
     await rm(temporary, { force: true });
   }
