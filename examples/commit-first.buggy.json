@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "manifest": {
+    "engine": "turntrace/1",
+    "fixture": "booking-correction/1",
+    "implementationSha256": "32dc49a99d53d0e138dc7193780bfbfda0fbdb0275ef80c97eeb9fb9f7ee5bd8"
+  },
+  "scenario": {
+    "id": "booking-correction",
+    "bookingId": "booking-1",
+    "initialDay": "Tuesday",
+    "correctedDay": "Thursday",
+    "policy": "buggy",
+    "order": "commit-first"
+  },
+  "choices": [
+    "input.tuesday",
+    "request.create",
+    "provider.pending",
+    "provider.commit",
+    "input.thursday",
+    "request.revise",
+    "provider.revise",
+    "reply.create",
+    "reply.revise",
+    "agent.confirm",
+    "device.queue",
+    "device.play"
+  ],
+  "events": [
+    {
+      "id": "input.tuesday",
+      "tick": 0,
+      "parents": [],
+      "actor": "agent",
+      "kind": "input.delivered",
+      "payload": {
+        "day": "Tuesday"
+      }
+    },
+    {
+      "id": "request.create",
+      "tick": 0,
+      "parents": [
+        "input.tuesday"
+      ],
+      "actor": "agent",
+      "kind": "request.sent",
+      "payload": {
+        "operation": "create",
+        "bookingId": "booking-1",
+        "day": "Tuesday"
+      }
+    },
+    {
+      "id": "provider.pending",
+      "tick": 1,
+      "parents": [
+        "request.create"
+      ],
+      "actor": "provider",
+      "kind": "provider.pending",
+      "payload": {
+        "bookingId": "booking-1",
+        "day": "Tuesday"
+      }
+    },
+    {
+      "id": "provider.commit",
+      "tick": 2,
+      "parents": [
+        "provider.pending"
+      ],
+      "actor": "provider",
+      "kind": "provider.committed",
+      "payload": {
+        "bookingId": "booking-1",
+        "day": "Tuesday",
+        "operation": "create"
+      }
+    },
+    {
+      "id": "input.thursday",
+      "tick": 2,
+      "parents": [
+        "input.tuesday"
+      ],
+      "actor": "agent",
+      "kind": "input.delivered",
+      "payload": {
+        "day": "Thursday"
+      }
+    },
+    {
+      "id": "request.revise",
+      "tick": 2,
+      "parents": [
+        "input.thursday"
+      ],
+      "actor": "agent",
+      "kind": "request.sent",
+      "payload": {
+        "operation": "revise-pending",
+        "bookingId": "booking-1",
+        "day": "Thursday"
+      }
+    },
+    {
+      "id": "provider.revise",
+      "tick": 2,
+      "parents": [
+        "request.revise",
+        "provider.commit"
+      ],
+      "actor": "provider",
+      "kind": "provider.revision",
+      "payload": {
+        "bookingId": "booking-1",
+        "day": "Thursday",
+        "outcome": "too-late"
+      }
+    },
+    {
+      "id": "reply.create",
+      "tick": 3,
+      "parents": [
+        "provider.commit"
+      ],
+      "actor": "agent",
+      "kind": "reply.delivered",
+      "payload": {
+        "bookingId": "booking-1",
+        "day": "Tuesday",
+        "operation": "create",
+        "outcome": "committed"
+      }
+    },
+    {
+      "id": "reply.revise",
+      "tick": 4,
+      "parents": [
+        "provider.revise"
+      ],
+      "actor": "agent",
+      "kind": "reply.delivered",
+      "payload": {
+        "bookingId": "booking-1",
+        "day": "Thursday",
+        "operation": "revise-pending",
+        "outcome": "too-late"
+      }
+    },
+    {
+      "id": "agent.confirm",
+      "tick": 4,
+      "parents": [
+        "reply.revise"
+      ],
+      "actor": "agent",
+      "kind": "claim.emitted",
+      "payload": {
+        "claimId": "confirmation-1",
+        "bookingId": "booking-1",
+        "day": "Thursday"
+      }
+    },
+    {
+      "id": "device.queue",
+      "tick": 5,
+      "parents": [
+        "agent.confirm"
+      ],
+      "actor": "device",
+      "kind": "device.queued",
+      "payload": {
+        "claimId": "confirmation-1",
+        "bookingId": "booking-1",
+        "day": "Thursday"
+      }
+    },
+    {
+      "id": "device.play",
+      "tick": 6,
+      "parents": [
+        "device.queue"
+      ],
+      "actor": "device",
+      "kind": "device.playbackStarted",
+      "payload": {
+        "claimId": "confirmation-1",
+        "bookingId": "booking-1",
+        "day": "Thursday"
+      }
+    }
+  ],
+  "result": {
+    "verdict": "fail",
+    "latestRequest": "Thursday",
+    "agent": {
+      "received": [
+        {
+          "eventId": "input.tuesday",
+          "detail": "Caller requested Tuesday."
+        },
+        {
+          "eventId": "input.thursday",
+          "detail": "Caller requested Thursday."
+        },
+        {
+          "eventId": "reply.create",
+          "detail": "Provider confirmed booking-1 for Tuesday (create)."
+        },
+        {
+          "eventId": "reply.revise",
+          "detail": "Provider rejected the attempted revision of booking-1 to Thursday (too-late)."
+        }
+      ],
+      "said": [
+        {
+          "eventId": "agent.confirm",
+          "detail": "Emitted confirmation confirmation-1 for booking-1 on Thursday."
+        }
+      ]
+    },
+    "device": {
+      "queued": [
+        {
+          "eventId": "device.queue",
+          "detail": "Queued confirmation-1 for booking-1 on Thursday."
+        }
+      ],
+      "played": [
+        {
+          "eventId": "device.play",
+          "detail": "Started playback of confirmation-1 for booking-1 on Thursday."
+        }
+      ]
+    },
+    "provider": {
+      "history": [
+        {
+          "eventId": "provider.commit",
+          "detail": "Created booking-1 for Tuesday."
+        }
+      ],
+      "active": [
+        {
+          "bookingId": "booking-1",
+          "day": "Tuesday"
+        }
+      ]
+    },
+    "findings": [
+      {
+        "property": "claim.supported",
+        "eventId": "agent.confirm",
+        "detail": "Claimed Thursday for booking-1. The latest delivered commitment confirms Tuesday at reply.create."
+      },
+      {
+        "property": "playback.booked",
+        "eventId": "device.play",
+        "detail": "Playback confirmed Thursday for booking-1. The provider committed Tuesday at provider.commit."
+      },
+      {
+        "property": "booking.latest",
+        "eventId": "provider.commit",
+        "detail": "booking-1 is for Tuesday. The last request at input.thursday was for Thursday."
+      }
+    ]
+  },
+  "digest": "0116be51cabf927613f20574be696c1d3708093d6851e389b40de86f32dd276e"
+}

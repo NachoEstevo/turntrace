@@ -11,6 +11,7 @@
     "exactOptionalPropertyTypes": true,
     "noEmitOnError": true,
     "newLine": "lf",
+    "removeComments": true,
     "declaration": true,
     "skipLibCheck": true
   },
