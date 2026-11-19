@@ -12,8 +12,8 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/trace.d.ts",
-      "import": "./dist/trace.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "scripts": {
@@ -21,6 +21,7 @@
     "pretest": "npm run build",
     "test": "vitest run",
     "demo": "node dist/cli/index.js demo",
+    "recovery": "node dist/cli/index.js recovery",
     "replay": "node dist/cli/index.js replay"
   },
   "dependencies": {

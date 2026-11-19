@@ -1,0 +1,284 @@
+{
+  "schemaVersion": 2,
+  "manifest": {
+    "engine": "turntrace/2",
+    "fixture": "booking-recovery/1",
+    "implementationSha256": "c2700628a3836270d4ab4230a0b7556e927629a9669d6763bafd476962329eaa"
+  },
+  "scenario": {
+    "id": "booking-recovery",
+    "day": "Thursday",
+    "operationKey": "booking-operation-1",
+    "policy": "safe",
+    "provider": "idempotent"
+  },
+  "choices": [
+    "input.thursday",
+    "store.write",
+    "store.commit",
+    "store.ack",
+    "request.1",
+    "provider.1",
+    "reply.drop",
+    "agent.crash",
+    "agent.restart",
+    "request.2",
+    "provider.2",
+    "reply.2",
+    "agent.confirm",
+    "device.queue",
+    "device.play"
+  ],
+  "events": [
+    {
+      "id": "input.thursday",
+      "tick": 0,
+      "parents": [],
+      "actor": "agent",
+      "kind": "input.delivered",
+      "payload": {
+        "epoch": 1,
+        "day": "Thursday"
+      }
+    },
+    {
+      "id": "store.write",
+      "tick": 1,
+      "parents": [
+        "input.thursday"
+      ],
+      "actor": "agent",
+      "kind": "store.requested",
+      "payload": {
+        "day": "Thursday",
+        "operationKey": "booking-operation-1",
+        "epoch": 1,
+        "revision": 1
+      }
+    },
+    {
+      "id": "store.commit",
+      "tick": 2,
+      "parents": [
+        "store.write"
+      ],
+      "actor": "store",
+      "kind": "store.committed",
+      "payload": {
+        "day": "Thursday",
+        "operationKey": "booking-operation-1",
+        "epoch": 1,
+        "revision": 1
+      }
+    },
+    {
+      "id": "store.ack",
+      "tick": 3,
+      "parents": [
+        "store.commit"
+      ],
+      "actor": "agent",
+      "kind": "store.ackDelivered",
+      "payload": {
+        "day": "Thursday",
+        "operationKey": "booking-operation-1",
+        "epoch": 1,
+        "revision": 1
+      }
+    },
+    {
+      "id": "request.1",
+      "tick": 4,
+      "parents": [
+        "store.ack"
+      ],
+      "actor": "agent",
+      "kind": "request.sent",
+      "payload": {
+        "operationKey": "booking-operation-1",
+        "day": "Thursday",
+        "epoch": 1,
+        "attemptId": "attempt-1"
+      }
+    },
+    {
+      "id": "provider.1",
+      "tick": 5,
+      "parents": [
+        "request.1"
+      ],
+      "actor": "provider",
+      "kind": "provider.committed",
+      "payload": {
+        "operationKey": "booking-operation-1",
+        "day": "Thursday",
+        "epoch": 1,
+        "attemptId": "attempt-1",
+        "bookingId": "booking-1"
+      }
+    },
+    {
+      "id": "reply.drop",
+      "tick": 6,
+      "parents": [
+        "provider.1"
+      ],
+      "actor": "transport",
+      "kind": "reply.dropped",
+      "payload": {
+        "operationKey": "booking-operation-1",
+        "day": "Thursday",
+        "epoch": 1,
+        "attemptId": "attempt-1",
+        "bookingId": "booking-1"
+      }
+    },
+    {
+      "id": "agent.crash",
+      "tick": 7,
+      "parents": [
+        "reply.drop"
+      ],
+      "actor": "agent",
+      "kind": "agent.crashed",
+      "payload": {
+        "epoch": 1
+      }
+    },
+    {
+      "id": "agent.restart",
+      "tick": 8,
+      "parents": [
+        "agent.crash",
+        "store.commit"
+      ],
+      "actor": "agent",
+      "kind": "agent.restarted",
+      "payload": {
+        "day": "Thursday",
+        "operationKey": "booking-operation-1",
+        "epoch": 2,
+        "revision": 1
+      }
+    },
+    {
+      "id": "request.2",
+      "tick": 9,
+      "parents": [
+        "agent.restart"
+      ],
+      "actor": "agent",
+      "kind": "request.sent",
+      "payload": {
+        "operationKey": "booking-operation-1",
+        "day": "Thursday",
+        "epoch": 2,
+        "attemptId": "attempt-2"
+      }
+    },
+    {
+      "id": "provider.2",
+      "tick": 10,
+      "parents": [
+        "request.2",
+        "provider.1"
+      ],
+      "actor": "provider",
+      "kind": "provider.reused",
+      "payload": {
+        "operationKey": "booking-operation-1",
+        "day": "Thursday",
+        "epoch": 2,
+        "attemptId": "attempt-2",
+        "bookingId": "booking-1"
+      }
+    },
+    {
+      "id": "reply.2",
+      "tick": 11,
+      "parents": [
+        "provider.2"
+      ],
+      "actor": "agent",
+      "kind": "reply.delivered",
+      "payload": {
+        "operationKey": "booking-operation-1",
+        "day": "Thursday",
+        "epoch": 2,
+        "attemptId": "attempt-2",
+        "bookingId": "booking-1"
+      }
+    },
+    {
+      "id": "agent.confirm",
+      "tick": 12,
+      "parents": [
+        "reply.2"
+      ],
+      "actor": "agent",
+      "kind": "claim.emitted",
+      "payload": {
+        "epoch": 2,
+        "bookingId": "booking-1",
+        "day": "Thursday",
+        "claimId": "confirmation-1"
+      }
+    },
+    {
+      "id": "device.queue",
+      "tick": 13,
+      "parents": [
+        "agent.confirm"
+      ],
+      "actor": "device",
+      "kind": "device.queued",
+      "payload": {
+        "epoch": 2,
+        "bookingId": "booking-1",
+        "day": "Thursday",
+        "claimId": "confirmation-1"
+      }
+    },
+    {
+      "id": "device.play",
+      "tick": 14,
+      "parents": [
+        "device.queue"
+      ],
+      "actor": "device",
+      "kind": "device.playbackStarted",
+      "payload": {
+        "epoch": 2,
+        "bookingId": "booking-1",
+        "day": "Thursday",
+        "claimId": "confirmation-1"
+      }
+    }
+  ],
+  "result": {
+    "verdict": "pass",
+    "status": "confirmed",
+    "bookings": [
+      {
+        "bookingId": "booking-1",
+        "day": "Thursday"
+      }
+    ],
+    "confirmation": {
+      "eventId": "agent.confirm",
+      "bookingId": "booking-1",
+      "day": "Thursday",
+      "evidenceEventId": "reply.2"
+    },
+    "review": null,
+    "played": [
+      {
+        "eventId": "device.play",
+        "bookingId": "booking-1",
+        "day": "Thursday"
+      }
+    ],
+    "findings": []
+  },
+  "digest": "7ce79e474e511659ba77365103cd9cd9a8d3be62147ec1bfd74ddea39ef2ceec"
+}

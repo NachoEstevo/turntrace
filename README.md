@@ -4,6 +4,8 @@ A caller asks for Tuesday, then changes the booking to Thursday. The agent says 
 
 Turntrace is a terminal debugger for that race. It runs a synthetic voice agent, booking provider and playback device on a virtual clock. Each decision has an event ID. A saved JSON trace lets a colleague reproduce the same decision and inspect the evidence available to the agent when it spoke.
 
+The [recovery demo](#recover-after-a-lost-acknowledgement) starts with a different question. A provider committed a booking, its acknowledgement was lost and the agent restarted. Can the new instance safely tell the caller that the booking exists?
+
 ## Run the demo
 
 Use Node.js 22.13.0 or later in the 22.x line, or Node.js 24.x, with npm. From the repository root in PowerShell or a Linux shell, run these commands on separate lines.
@@ -32,12 +34,45 @@ To see the fix under the same order, run the following command. Look for `reques
 node dist/cli/index.js demo --order commit-first --policy fixed
 ```
 
+## Recover after a lost acknowledgement
+
+After `npm ci` and `npm run build`, run both providers with the safe policy.
+
+```sh
+npm run recovery
+```
+
+The caller requests Thursday once. The first agent stores the intent and operation key, waits for the store acknowledgement and sends the create request. The provider commits the reservation. The transport drops the acknowledgement before delivery, then the simulator destroys the agent instance. The provider keeps its booking and the agent's separate store keeps its journal. The new instance starts with the journal and has received no provider receipt.
+
+| Provider and policy | What the restarted agent does | Observable outcome |
+| --- | --- | --- |
+| `idempotent`, `safe` | Sends a new attempt with the stored operation key. The provider returns the original receipt. | One booking. The agent receives the receipt, confirms Thursday and the device starts playback. |
+| `opaque`, `safe` | Records the outcome as unknown and requests human review. This provider supports neither lookup nor deduplication. | One booking in the provider's ledger. The agent sends no second create request and makes no booking confirmation. |
+| Either provider, `blind-retry` | Generates a new operation key after restart and sends another create request. | Two bookings for one intent. Even an idempotent provider treats the new key as a separate operation. The checker reports the violation. |
+
+The first command shows the full handoff timeline. The second shows the faulty policy creating a duplicate with the idempotent provider.
+
+```sh
+node dist/cli/index.js recovery --provider opaque
+node dist/cli/index.js recovery --provider idempotent --policy blind-retry
+```
+
+`unknown` with a recorded handoff is a passing outcome for the safe opaque case. A booking visible to the verifier is only evidence for the agent if the provider's result reaches that instance.
+
 ## Replay or share a trace
 
 The repository includes the failing case. This command should print `Verified replay of 12 choices`, show the failed check and exit with status **1**.
 
 ```sh
 npm run replay -- examples/commit-first.buggy.json
+```
+
+The same replay command accepts the recovery example and returns **0**. To capture a different recovery case, select a provider and write to a new file.
+
+```sh
+npm run replay -- examples/recovery.idempotent.json
+node dist/cli/index.js recovery --provider opaque --out opaque.json
+node dist/cli/index.js replay opaque.json
 ```
 
 To save and replay a passing case, choose a new filename in an existing directory. If that path already exists, the CLI preserves the file and exits with status 2. These commands work in PowerShell and Bash.
@@ -62,6 +97,6 @@ npm test
 node dist/cli/index.js --help
 ```
 
-`npm test` builds the TypeScript sources and runs scheduler, booking, verifier, replay and CLI regressions. The CLI test regenerates the checked-in failing trace byte for byte. CI runs that test on both Windows and Linux with Node 22.13.0 and 24.x.
+`npm test` builds the TypeScript sources and runs scheduler, booking, recovery, verifier, replay and CLI regressions. CI checks the original schema 1 booking trace and the schema 2 recovery example on Windows and Linux with Node 22.13.0 and 24.x.
 
-V1 covers one caller, one stateful provider and two selected schedules. Input, replies, enqueueing and playback start are distinct observations. Playback is a device marker. Real audio, restarts, lost acknowledgements, persistent recovery and exhaustive schedule exploration are outside this demo. The simulation runs offline after dependencies are installed. [Architecture and evidence boundaries](docs/architecture.md)
+The booking-race fixture covers two selected schedules. The recovery fixture fixes one crash after a committed create and a lost reply, and varies provider capabilities and agent policy. Each run starts with a new world. The journal survives a simulated agent restart in memory. Crashes of the CLI or disk, further crash points, repeated losses, exhaustive exploration and real audio are outside these fixtures. Device playback is a start marker. Both simulations run offline after dependencies are installed. [Architecture and evidence boundaries](docs/architecture.md)
