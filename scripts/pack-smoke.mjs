@@ -119,12 +119,24 @@ try {
   assert(resources.processPeakRssKiB > 0);
   const customer = join(lab, "customer-race.json");
   const adapter = join(lab, "customer-agent.mjs");
-  // Explore both possible caller/timer orders in a third-party adapter, then replay
-  // the saved witness using the adapter the consumer explicitly selected.
+  const customerHistories = "customer histories";
   const report = JSON.parse(cli(["explore", customer, "--adapter", adapter, "--max-runs", "200",
-    "--out", "customer trace.json", "--json"], 1));
+    "--out", "customer trace.json", "--out-dir", customerHistories, "--json"], 1));
   assert(report.complete && report.violations > 0 && report.violations < report.histories);
   assert.match(cli(["replay", "customer trace.json", "--adapter", adapter], 1), /Verified replay/i);
+  const failing = report.artifacts.find(item => item.status === "terminal" && item.firstProperty === "claim.supported");
+  const passing = report.artifacts.find(item => item.status === "terminal" && !item.firstProperty);
+  assert(failing && passing, "Expected a failed confirmation and a passing history from the customer adapter");
+  const compared = JSON.parse(cli(["compare", join(customerHistories, failing.file), join(customerHistories, passing.file),
+    "--adapter", adapter, "--out-dir", "paired", "--json"]));
+  assert.equal(compared.status, "isolated");
+  assert.deepEqual(JSON.parse(readFileSync(join(consumer, "paired", "comparison.json"), "utf8")), compared);
+  const left = JSON.parse(cli(["replay", join("paired", "left.json"), "--adapter", adapter, "--json"], 1));
+  const right = JSON.parse(cli(["replay", join("paired", "right.json"), "--adapter", adapter, "--json"]));
+  assert.equal(left.result.verdict, "fail");
+  assert.equal(left.result.findings[0]?.property, failing.firstProperty);
+  assert.equal(right.result.verdict, "pass");
+  assert.notEqual(left.digest, right.digest);
   const failure = JSON.parse(cli(["run", join(lab, "reduce.json"), "--out", "full trace.json", "--json"], 1));
   const minimized = JSON.parse(cli(["minimize", "full trace.json", "--out", "reduced trace.json", "--json"], 1));
   assert.equal(minimized.originalDigest, failure.digest);
@@ -142,7 +154,7 @@ try {
   changed.result.verdict = "unverified";
   writeFileSync(join(consumer, "changed trace.json"), JSON.stringify(changed));
   assert.match(cli(["replay", "changed trace.json"], 2, "stderr"), /invalid|diverg|mismatch/i);
-  console.log("Tar contents, production install, npm bin, ESM API, declarations and offline replays passed.");
+  console.log("Tar contents, production install, npm bin, ESM API, declarations, offline replays and paired comparison passed.");
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

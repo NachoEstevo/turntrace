@@ -4,18 +4,22 @@ A caller asks for Tuesday, then changes the booking to Thursday. The agent says 
 
 Turntrace is a terminal debugger for that race. It runs a synthetic voice agent, booking provider and playback device on a virtual clock. Each decision has an event ID. A saved JSON trace lets a colleague reproduce the same decision and inspect the evidence available to the agent when it spoke.
 
-To install the private tarball, download the archive from the [v0.1.0 release](https://github.com/NachoEstevo/turntrace/releases/tag/v0.1.0) and follow the [installation guide](docs/distribution.md). The commands below use a built checkout. After installation, use `npm exec --offline -- turntrace` in place of `node dist/cli/index.js`. The installed fixtures are in `node_modules/turntrace/examples/`.
+The commands below use a built checkout. You can also install the v0.2.0 private tarball and use `npm exec --offline '--' turntrace` in place of `node dist/cli/index.js`. The installed fixtures are in `node_modules/turntrace/examples/`. [v0.2.0 release](https://github.com/NachoEstevo/turntrace/releases/tag/v0.2.0) · [Installation guide](docs/distribution.md)
 
 ## Find the first wrong decision
 
 The bundled customer-service adapter requests a Tuesday reservation. The provider commits it and its reply gets lost. When a Thursday correction and the agent's review timer become eligible together, their order determines what the agent tells the caller. From a checkout, run `npm ci` and `npm run build`, then explore both orders.
 
 ```sh
-node dist/cli/index.js explore examples/lab/customer-race.json --adapter examples/lab/customer-agent.mjs --max-runs 200 --out-dir histories --out witness.json
-node dist/cli/index.js replay witness.json --adapter examples/lab/customer-agent.mjs
+node dist/cli/index.js explore examples/lab/customer-race.json --adapter examples/lab/customer-agent.mjs --max-runs 8 --out-dir histories
+node dist/cli/index.js compare histories/history-00002.json histories/history-00001.json --adapter examples/lab/customer-agent.mjs --out-dir diagnosis
+node dist/cli/index.js replay diagnosis/left.json --adapter examples/lab/customer-agent.mjs
+node dist/cli/index.js replay diagnosis/right.json --adapter examples/lab/customer-agent.mjs
 ```
 
-Both histories leave Tuesday booked. In one, the timer fires first and the agent opens a manual review, then adds the Thursday correction to that review. In the other, the correction arrives first and the agent confirms Thursday with no supporting receipt. The checker reports `claim.supported` at the speech event. Both commands exit with status 1 because they found that violation. Replay prints the event ID, its causal parents, the agent's claim, the device's playback and the provider's reservation. [Scenario](examples/lab/customer-race.json) · [Adapter](examples/lab/customer-agent.mjs)
+The campaign finds two terminal histories and exits 1. At tick 10, history 2 runs the review timer first. The agent opens a manual review and adds the Thursday correction when it arrives. History 1 delivers Thursday first. When its timer fires, the agent confirms a Thursday reservation without a receipt. The first finding is `claim.supported` at tick 10. The device starts playing that confirmation at tick 12. The provider holds Tuesday in both histories. [Scenario](examples/lab/customer-race.json) · [Adapter](examples/lab/customer-agent.mjs)
+
+`compare` replays both input traces. The first scheduling difference can be harmless. To isolate the difference that changed the outcome, the command generates two witnesses with the same prefix, runs two eligible actions in opposite orders and applies the same deterministic scheduling rule afterward. Here that swap reproduces the passing result on the left and the exact first finding on the right. The comparison exits 0. Replaying its witnesses exits 0 and 1 respectively. Use a new directory for each command that writes files. For other agents, `--observation NAME` targets a difference in a recorded decision. [Comparison options and evidence](docs/acceptance.md#compare-two-histories)
 
 For a smaller built-in example, replay the [saved failure](examples/lab/premature-ack.trace.json). The agent acknowledged a caller input before its receipt was durable. To see which perturbations the reducer can remove, run the original case and compare the files.
 
@@ -125,10 +129,10 @@ The file contains the scenario, policy, schedule, ordered action IDs, observed e
 
 | Exit code | Meaning |
 | --- | --- |
-| 0 | The selected histories passed. Coverage in the report identifies enumeration or sampling. Help and schema output also return 0. |
+| 0 | The selected histories passed. For `compare`, the command isolated the target difference or found the selected target equal. Help and schema output also return 0. |
 | 1 | An observed property violation, including a verified replay or reduction of a failing case. This takes precedence over an unfinished branch or campaign. |
 | 2 | The CLI could not run or verify the case. Examples include a missing file, an incompatible build, a disabled choice and an observation that differs during replay. |
-| 3 | The requested exploration is inconclusive. Inspect blocked or truncated branches, pending prefixes and remaining samples. |
+| 3 | The requested exploration is inconclusive. For `compare`, the two verified inputs are incompatible or the search could not isolate the target within its limits. |
 
 ## Tests and scope
 
