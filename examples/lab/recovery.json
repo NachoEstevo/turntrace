@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "recovery",
+  "policy": "safe",
+  "provider": {"idempotent": true, "query": true, "amend": true},
+  "delivery": "recoverable",
+  "expectation": "confirmed",
+  "delays": {"provider": 3},
+  "actions": [
+    {"id": "lose.reply", "tick": 0, "kind": "drop-next", "channel": "providerReply"},
+    {"id": "caller.tuesday", "kind": "input", "tick": 0, "inputId": "request-tuesday", "day": "Tuesday"},
+    {"id": "caller.thursday", "kind": "input", "tick": 7, "inputId": "request-thursday", "day": "Thursday"},
+    {"id": "crash", "kind": "crash", "tick": 12},
+    {"id": "restart", "kind": "restart", "tick": 13, "parents": ["crash"]}
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "device-flush",
+  "policy": "safe",
+  "provider": {"idempotent": true, "query": true, "amend": true},
+  "delivery": "recoverable",
+  "expectation": "confirmed",
+  "actions": [
+    {"id": "late.tuesday", "kind": "delay-next", "tick": 0, "channel": "speech", "delayTicks": 18},
+    {"id": "caller.tuesday", "kind": "input", "tick": 0, "inputId": "request-tuesday", "day": "Tuesday"},
+    {"id": "caller.thursday", "kind": "input", "tick": 12, "inputId": "request-thursday", "day": "Thursday"}
+  ]
+}

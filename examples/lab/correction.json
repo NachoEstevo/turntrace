@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "correction",
+  "policy": "safe",
+  "provider": {"idempotent": true, "query": true, "amend": true},
+  "delivery": "recoverable",
+  "expectation": "confirmed",
+  "actions": [
+    {"id": "caller.tuesday", "kind": "input", "tick": 0, "inputId": "request-tuesday", "day": "Tuesday"},
+    {"id": "caller.thursday", "kind": "input", "tick": 3, "inputId": "request-thursday", "day": "Thursday"}
+  ]
+}

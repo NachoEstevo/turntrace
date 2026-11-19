@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "redelivery",
+  "policy": "safe",
+  "provider": {"idempotent": true, "query": true, "amend": true},
+  "delivery": "recoverable",
+  "expectation": "confirmed",
+  "actions": [
+    {"id": "caller.tuesday", "kind": "input", "tick": 0, "inputId": "request-tuesday", "day": "Tuesday"},
+    {"id": "lose.input-ack", "kind": "drop-next", "tick": 12, "channel": "inputAck"},
+    {"id": "caller.thursday", "kind": "input", "tick": 13, "inputId": "request-thursday", "day": "Thursday"},
+    {"id": "crash", "kind": "crash", "tick": 18},
+    {"id": "restart", "kind": "restart", "tick": 19, "parents": ["crash"]}
+  ]
+}

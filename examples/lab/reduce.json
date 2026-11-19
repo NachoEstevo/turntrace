@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "reduce",
+  "policy": "premature-ack",
+  "provider": {"idempotent": true, "query": true, "amend": true},
+  "delivery": "recoverable",
+  "expectation": "confirmed",
+  "delays": {"store": 4, "inputAck": 0},
+  "actions": [
+    {"id": "caller.thursday", "kind": "input", "tick": 0, "inputId": "request-thursday", "day": "Thursday"},
+    {"id": "spare.delay", "kind": "delay-next", "tick": 20, "channel": "providerReply", "delayTicks": 3, "optional": true, "group": "spare-traffic"},
+    {"id": "spare.drop", "kind": "drop-next", "tick": 21, "parents": ["spare.delay"], "channel": "storeAck", "optional": true, "group": "spare-traffic"},
+    {"id": "spare.input", "kind": "delay-next", "tick": 22, "parents": ["spare.drop"], "channel": "input", "delayTicks": 4, "optional": true}
+  ]
+}

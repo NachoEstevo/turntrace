@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "customer-race",
+  "policy": "customer-desk",
+  "provider": {"idempotent": false, "query": false, "amend": false},
+  "delivery": "once",
+  "expectation": "review",
+  "delays": {"input": 1},
+  "actions": [
+    {"id": "lose.receipt", "kind": "drop-next", "channel": "providerReply", "tick": 0},
+    {"id": "caller.tuesday", "kind": "input", "tick": 0, "parents": ["lose.receipt"], "inputId": "request-tuesday", "day": "Tuesday"},
+    {"id": "caller.thursday", "kind": "input", "tick": 9, "inputId": "request-thursday", "day": "Thursday"}
+  ]
+}

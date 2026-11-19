@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "epoch-race",
+  "provider": {"idempotent": true, "query": true, "amend": true},
+  "delivery": "recoverable",
+  "expectation": "confirmed",
+  "delays": {"store": 3, "storeAck": 3},
+  "actions": [
+    {"id": "caller", "kind": "input", "tick": 0, "inputId": "request-thursday", "day": "Thursday"},
+    {"id": "crash", "kind": "crash", "tick": 3},
+    {"id": "restart", "kind": "restart", "tick": 4, "parents": ["crash"]}
+  ]
+}

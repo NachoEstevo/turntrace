@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "opaque",
+  "policy": "safe",
+  "provider": {"idempotent": false, "query": false, "amend": false},
+  "delivery": "recoverable",
+  "expectation": "review",
+  "actions": [
+    {"id": "lose.reply", "tick": 0, "kind": "drop-next", "channel": "providerReply"},
+    {"id": "caller.thursday", "kind": "input", "tick": 0, "inputId": "request-thursday", "day": "Thursday"},
+    {"id": "crash", "kind": "crash", "tick": 6},
+    {"id": "restart", "kind": "restart", "tick": 7, "parents": ["crash"]}
+  ]
+}

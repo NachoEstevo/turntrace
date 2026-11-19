@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "commit-race",
+  "provider": {"idempotent": true, "query": true, "amend": true},
+  "delivery": "recoverable",
+  "expectation": "confirmed",
+  "delays": {"provider": 4},
+  "actions": [
+    {"id": "caller", "kind": "input", "tick": 0, "inputId": "request-thursday", "day": "Thursday"},
+    {"id": "crash", "kind": "crash", "tick": 6},
+    {"id": "restart", "kind": "restart", "tick": 7, "parents": ["crash"]}
+  ]
+}
