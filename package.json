@@ -1,0 +1,34 @@
+{
+  "name": "turntrace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Replay the order of a voice agent's booking decisions.",
+  "type": "module",
+  "engines": {
+    "node": "^22.13.0 || ^24.0.0"
+  },
+  "bin": {
+    "turntrace": "./dist/cli/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/trace.d.ts",
+      "import": "./dist/trace.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "pretest": "npm run build",
+    "test": "vitest run",
+    "demo": "node dist/cli/index.js demo",
+    "replay": "node dist/cli/index.js replay"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3",
+    "vitest": "5.1.1"
+  }
+}
