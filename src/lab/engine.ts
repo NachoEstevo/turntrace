@@ -50,8 +50,10 @@ function validId(id: string): boolean {
   return typeof id === "string" && id.length > 0 && !/[^\x21-\x7e]/u.test(id);
 }
 
+type CausalAction = Pick<LabAction, "id" | "tick" | "parents">;
+
 /** Older validated actions cannot depend on IDs first registered in this batch. */
-function validateBatch(batch: readonly LabAction[], all: ReadonlyMap<string, LabAction>): void {
+export function validateDependencies(batch: readonly CausalAction[], all: ReadonlyMap<string, CausalAction>): void {
   const unmet = new Map(batch.map(({ id }) => [id, 0]));
   const children = new Map<string, string[]>();
   for (const action of batch) {
@@ -139,7 +141,7 @@ export class LabScheduler {
     try {
       while (this.pending.size) {
         if (this.additions.length) {
-          validateBatch(this.additions, this.all);
+          validateDependencies(this.additions, this.all);
           this.additions = [];
         }
         const eligible = [...this.pending.values()].filter((action) =>
